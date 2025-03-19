@@ -2,20 +2,43 @@ import json
 from fastapi import FastAPI, HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from chatbotStream import Chatbot  # 기존 코드의 Chatbot 클래스 임포트
+from chatbot import Chatbot  # 기존 코드의 Chatbot 클래스 임포트
+from chatbotStream import ChatbotStream
 from common import client, model
 from fastapi.responses import StreamingResponse
 import asyncio
 from characters import instruction,system_role
 from function_calling import FunctionCalling, tools # 단일 함수 호출
+from contextlib import asynccontextmanager
 
-app = FastAPI()
-chatbot = Chatbot(
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 시작 시에는 별다른 동작 없이 바로 yield
+    yield
+    # 종료 시 실행할 코드
+    print("FastAPI shutting down...")
+    chatbot.save_chat()
+    print("Saved!")
+
+
+
+
+app = FastAPI(lifespan=lifespan)
+'''chatbot = Chatbot(
     model=model.basic,
     system_role = system_role,
-    instruction=instruction
-    )  # 모델 초기화
+    instruction=instruction,
+    user= "대기",
+    assistant= "memmo"
+    )  # 모델 초기화'''
 
+chatbot=ChatbotStream(
+    model=model.basic,
+    system_role = system_role,
+    instruction=instruction,
+    user= "대기",
+    assistant= "memmo"
+    )
 # CORS 설정 (안드로이드 앱 접근 허용)
 app.add_middleware(
     CORSMiddleware,
@@ -49,10 +72,10 @@ async def stream_chat(user_input: UserRequest):
     # 3) 함수 호출(툴 실행)이 있는지 확인
     if analyzed_dict.get("tool_calls"):
         # 함수 호출이 있다면 임시문맥을 생성
-        temp_context = chatbot.context[:]  # 원본 문맥을 복사
+        temp_context=chatbot.to_openai_context()[:]
         temp_context.append(analyzed)      # 분석된 메시지를 임시문맥에 추가
-
         tool_calls = analyzed_dict['tool_calls']
+
         for tool_call in tool_calls:
             function = tool_call["function"]
             func_name = function["name"]
@@ -63,14 +86,12 @@ async def stream_chat(user_input: UserRequest):
                 func_args = json.loads(function["arguments"])
                 # 실제 함수 호출
                 func_response = func_to_call(**func_args)
-
-                # 함수 실행 결과를 임시문맥에 추가
                 temp_context.append({
                     "tool_call_id": tool_call["id"],
                     "role": "tool",
                     "name": func_name,
                     "content": str(func_response)
-                })
+                })#실행 결과를 문맥에 추가
             except Exception as e:
                 # 함수 실행 중 에러 처리
                 error_msg = f"[함수 실행 오류] {str(e)}"
@@ -120,7 +141,7 @@ async def stream_chat(user_input: UserRequest):
             try:
                 response = client.chat.completions.create(
                     model=chatbot.model,
-                    messages=chatbot.context,
+                    messages=chatbot.to_openai_context(),
                     temperature=0.5,
                     top_p=1,
                     frequency_penalty=0,
@@ -172,3 +193,6 @@ FastAPI에서는 요청 데이터를 받을 때, Pydantic 모델(UserRequest)을
     chatbot.clean_context()#instructoin제거
     print("response_message:", response_message)
     return {"response_message": response_message}
+
+
+

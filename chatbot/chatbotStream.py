@@ -4,19 +4,23 @@ import sys
 from characters import instruction,system_role
 import math
 from function_calling import FunctionCalling,tools
+from memory_manager import MemoryManager
+
 # 2025년 표준 API 지침 준수: 
 # - POST /v1/chat/completions
 # - body: { model: "gpt-...", messages: [...] }
 # - 인증: "Authorization: Bearer YOUR_API_KEY"
 
 
-class Chatbot:
-    def __init__(self, model,system_role,instruction):
+class ChatbotStream:
+    def __init__(self, model,system_role,instruction,**kwargs):
         """
         초기화:
           - context 리스트 생성 및 시스템 역할 설정
           - openai.api_key 설정
           - 사용할 모델명 저장
+          - 사용자 이름
+          - assistant 이름름
         """
         self.context = [{"role": "system","content": system_role}]
         self.model = model
@@ -24,7 +28,7 @@ class Chatbot:
 
         self.max_token_size = 16 * 1024 #최대 토큰이상을 쓰면 오류가발생 따라서 토큰 용량관리가 필요.
         self.available_token_rate = 0.9#최대토큰의 90%만 쓰겠다.
-    """def handle_token_limit(self,response):
+        """def handle_token_limit(self,response):
         '''
         #누적 토큰수가 임계점을 넘지 않게 한다
         #현재 토큰 사용량/최대 토큰값 을 통해 사용 비율을 알아내고
@@ -43,19 +47,28 @@ class Chatbot:
                 self.context=[self.context[0]+self.context[remove_size+1:]]
         except Exception as e:
             print(f"handle_token_limit exception:{e}")
-"""
+            """
+        self.username=kwargs["user"]
+        self.assistantname=kwargs["assistant"]
+        self.memoryManager = MemoryManager()
+        self.context.extend(self.memoryManager.restore_chat())
+
     def add_user_message_in_context(self, message: str):
         """
         사용자 메시지 추가:
           - 사용자가 입력한 message를 context에 user 역할로 추가
         """
-        self.context.append({"role": "user", "content": message})
+        self.context.append({
+            "role": "user",
+            "content": message,
+            "saved" : False
+            })
 #스트림 출력
     def _send_request_Stream(self,temp_context=None):
         if temp_context is None:
             response = client.chat.completions.create(
                     model=self.model, 
-                    messages=self.context,
+                    messages=self.to_openai_context(),
                     temperature=0.5,
                     top_p=1,
                     frequency_penalty=0,
@@ -93,41 +106,24 @@ class Chatbot:
       self.context[-1]['content']+=self.instruction
       #context문 맨 마지막에 instruction을 추가해라.
       return self._send_request_Stream()#->실제 보내는 코드는 _send_request 이다,
-#completion출력
-    def _send_request(self):
-        try:
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=self.context,
-                temperature=0.5,
-                top_p=1,
-                max_tokens=256,
-                frequency_penalty=0,
-                presence_penalty=0
-            ).model_dump()
-        except Exception as e:
-            print(f"Exception 오류({type(e)}) 발생:{e}")
-            if 'maximum context length' in str(e):
-                self.context.pop()
-                return makeup_response("메시지 조금 짧게 보내줄래?")
-            else: 
-                return makeup_response("[챗봇에 문제가 발생했습니다. 잠시 뒤 이용해주세요]")
-            
-        return response
+
     def send_request(self):
         self.context[-1]['content'] += self.instruction
         return self._send_request()
 #대화 문맥 추가*add response 수정-> 응답객체에서 content 추출출
     def add_response(self, response):
-            self.context.append({
-                    "role" : response['choices'][0]['message']["role"],
-                    "content" : response['choices'][0]['message']["content"],
-                }
-            )
+        response_message = {
+            "role" : response['choices'][0]['message']["role"],
+            "content" : response['choices'][0]['message']["content"],
+            "saved" : False
+        }
+        self.context.append(response_message)
+
     def add_response_stream(self, response):
             self.context.append({
                     "role" : "assistant",
                     "content" : response,
+                    "saved" : False,
                 }
             )
     def get_response(self, response_text: str):
@@ -157,7 +153,12 @@ class Chatbot:
                 remove_size = math.ceil(len(self.context) / 10)
                 self.context = [self.context[0]] + self.context[remove_size+1:]
         except Exception as e:
-            print(f"handle_token_limit exception:{e}")   
+            print(f"handle_token_limit exception:{e}")
+    def to_openai_context(self):
+        return [{"role":v["role"], "content":v["content"]} for v in self.context]
+    def save_chat(self):
+        self.memoryManager.save_chat(self.context)   
+ 
 if __name__ == "__main__":
     """
     <테스트 시나리오>대로 프로그램이 동작하도록 구성.
@@ -167,7 +168,7 @@ if __name__ == "__main__":
     4) 응답을 context에 추가, 콘솔에 출력
     5) 새 입력이 들어오면 (2)~(4) 반복
     """
-    chatbot = Chatbot(model.advanced,system_role=system_role,instruction=instruction)
+    chatbot = ChatbotStream(model.advanced,system_role=system_role,instruction=instruction,user="대기",assistant="memmo")
     func_calling=FunctionCalling(model.basic)
     print("===== Chatbot Started =====")
     print("초기 context:", chatbot.context)
@@ -201,8 +202,8 @@ if __name__ == "__main__":
                 })#실행 결과를 문맥에 추가
                 # 이런식으로 추가해줬다. 그래서 함수호출맥락을 파악한 모델은 함수호출결과를 토대로 응답을'''
             # 도구 실행 및 결과를 문맥에 추가
-            
-            temp_context=chatbot.context[:]
+            temp_context=chatbot.to_openai_context()
+            #temp_context=chatbot.context
             '''와 계속 안되다가 03/05/25
             이부분이 문제라는걸 발견 
             문제: 본chatbot.context에 계속 함수호출이 누적되는현상=? 함수 호출후 정상적인 결과응답을 위해서는 함수호출 문맥이 필요히나
@@ -238,12 +239,15 @@ if __name__ == "__main__":
             streamed_response = chatbot._send_request_Stream(temp_context=temp_context)
             temp_context=None
             chatbot.add_response_stream(streamed_response)  # 응답을 문맥에 추가
+            print(chatbot.context)
+
             
         else:
             # 일반 대화 처리 (스트리밍 출력)
             streamed_response = chatbot.send_request_Stream()
             chatbot.clean_context()
             chatbot.add_response_stream(streamed_response)  # 응답을 문맥에 추가
+            print(chatbot.context)
 
             
 
