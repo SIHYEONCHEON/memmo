@@ -10,14 +10,15 @@
     <!-- 대화 내용 -->
 
     <!-- 입력 레이아웃 -->
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/chat_recyclerView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_above="@id/input_layout"
         android:layout_alignParentTop="true"
-        android:layout_marginTop="0dp"
-        android:layout_marginBottom="0dp" />
+        android:layout_marginTop="56dp"
+        android:layout_marginBottom="-52dp" />
 
     <FrameLayout
         android:id="@+id/input_layout"
@@ -29,13 +30,13 @@
 
         <EditText
             android:id="@+id/message_edit"
-            android:layout_width="match_parent"
+            android:layout_width="330dp"
             android:layout_height="50dp"
             android:layout_marginStart="10dp"
             android:layout_marginEnd="10dp"
             android:background="@drawable/edit_background"
             android:hint="메시지 보내기..."
-            android:paddingStart="10dp"/>
+            android:paddingStart="10dp" />
 
         <ImageButton
             android:id="@+id/send_btn"
@@ -47,8 +48,38 @@
             android:background="@drawable/btn_background"
             android:src="@drawable/send_icon"
             android:scaleType="centerInside"/>
-
-
     </FrameLayout>
+
+    <Button
+        android:id="@+id/start_button"
+        android:layout_width="100dp"
+        android:layout_height="40dp"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="315dp"
+        android:layout_marginBottom="64dp"
+        android:text="시작" />
+
+    <Button
+        android:id="@+id/stop_button"
+        android:layout_width="100dp"
+        android:layout_height="40dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="-96dp"
+        android:layout_marginBottom="102dp"
+        android:layout_toRightOf="@id/start_button"
+        android:enabled="false"
+        android:text="중지" />
+
+    <Button
+        android:id="@+id/confirm_button"
+        android:layout_width="100dp"
+        android:layout_height="40dp"
+        android:layout_alignParentBottom="true"
+        android:layout_marginLeft="-97dp"
+        android:layout_marginBottom="140dp"
+        android:layout_toRightOf="@id/stop_button"
+        android:enabled="true"
+        android:text="확인" />
 
 </RelativeLayout>

@@ -2,13 +2,13 @@ import json
 from fastapi import FastAPI, HTTPException,Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from chatbot import Chatbot  # 기존 코드의 Chatbot 클래스 임포트
-from chatbotStream import ChatbotStream
-from common import client, model
+from ai_app.chatbot import Chatbot  # 기존 코드의 Chatbot 클래스 임포트
+from ai_app.chatbotStream import ChatbotStream
+from ai_app.common import client, model
 from fastapi.responses import StreamingResponse
 import asyncio
-from characters import instruction,system_role
-from function_calling import FunctionCalling, tools # 단일 함수 호출
+from ai_app.characters import instruction,system_role
+from ai_app.utils.function_calling import FunctionCalling, tools # 단일 함수 호출
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -19,8 +19,6 @@ async def lifespan(app: FastAPI):
     print("FastAPI shutting down...")
     chatbot.save_chat()
     print("Saved!")
-
-
 
 
 app = FastAPI(lifespan=lifespan)
