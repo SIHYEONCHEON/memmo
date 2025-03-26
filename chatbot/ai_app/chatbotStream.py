@@ -34,7 +34,7 @@ class ChatbotStream:
         self.username=kwargs["user"]
         self.assistantname=kwargs["assistant"]
         self.memoryManager = MemoryManager()
-        self.context.extend(self.memoryManager.restore_chat())
+       # self.context.extend(self.memoryManager.restore_chat())
 #사용자의 입력을 맥락에에 추가
     def add_user_message_in_context(self, message: str):
         """
