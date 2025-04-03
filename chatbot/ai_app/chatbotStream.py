@@ -7,7 +7,7 @@ from ai_app.characters import instruction,system_role
 import math
 from ai_app.utils.function_calling import FunctionCalling,tools
 from db.memory_manager import MemoryManager
-
+import copy
 # 2025년 표준 API 지침 준수: 
 # - POST /v1/chat/completions
 # - body: { model: "gpt-...", messages: [...] }
@@ -34,7 +34,7 @@ class ChatbotStream:
         self.username=kwargs["user"]
         self.assistantname=kwargs["assistant"]
         self.memoryManager = MemoryManager()
-       # self.context.extend(self.memoryManager.restore_chat())
+        #self.context.extend(self.memoryManager.restore_chat())
 #사용자의 입력을 맥락에에 추가
     def add_user_message_in_context(self, message: str):
         """
@@ -47,6 +47,13 @@ class ChatbotStream:
             "saved" : False
             })
 #전송부
+# _send,,,와 send 가 있다. 
+# send_request_Steam은 사용자 응답에 지침을 더해 대답을 생성한다.
+# _send는 단순 출력부로 현재 문맥에 따라 대답을 제공한다.
+#이렇게 구분한이유는 에이전트 도구사용과 같은 동작에서는 사용자 지침보다,도구를 사용한 결과값이 중요하기떄문
+#send는 기억 검색도 실시한다. 즉 사용자의 질문에 항상 기억검색 여부를 판단한다.
+# 이처럼 _ send동작을 처리하기 전까지 해야되는 처리는 send에 둔다.
+  
     def _send_request_Stream(self,temp_context=None):
         if temp_context is None:
             response = client.chat.completions.create(
@@ -81,18 +88,43 @@ class ChatbotStream:
         print()
 
         return collected_text  # 완성된 전체 텍스트 반환 
-          
+      
     def send_request_Stream(self):
-      '''
-      completion출력용
-      출력 토큰을 조절할수 있다
-      현재 스트리밍은 출력 토큰 계산이 어려워 해당기능은 없음'''
-      self.context[-1]['content']+=self.instruction
+      memory_instruction = self.search_memory_inDB()
+      self.context[-1]['content'] += self.instruction + (memory_instruction if memory_instruction else "")
       #context문 맨 마지막에 instruction을 추가해라.
-      return self._send_request_Stream()#->실제 보내는 코드는 _send_request 이다,
+      return self._send_request_Stream()#->실제 보내는 코드는 _send_request 이다.
+
+
+
     def send_request(self):
-        self.context[-1]['content'] += self.instruction
-        return self._send_request()
+        memory_instruction = self.search_memory_inDB()
+        self.context[-1]['content'] += self.instruction + (memory_instruction if memory_instruction else "")
+       
+    def search_memory_inDB(self):
+        '''
+        Context에 없는 내용을 사용자가 물으면 DB에서 검색한다.
+        memoryManager.retrieve_memory()에서 사용자 질의로 벡터 검색을 해 몽고에서 데이터를 가져온다.
+        검색 데이터가 없다면 NONE을 반환->이때 우리는 해당 기억이 없다는 내용을 자연스럽게 사용자에게 전달한다.
+        '''
+        
+        #AI에게 보내기전, 문맥에서 마지막 사용자 메세지를 가져와 DB에 검색해야 되는지를 판단한다.
+        user_message= self.context[-1]['content'] 
+        if not self.memoryManager.needs_memory(user_message):#기억할 필요가 없다면 기억검색을 하지않는다.
+            return
+        else:
+            memory = self.memoryManager.retrieve_memory(user_message) #검색한다, 검색결과가 있다면 기억이 들어가고 없거나 유사도가 낮다면 NONE을 반환한다
+        
+        if memory is not None:
+            whisper = (
+            f"[Whisper]\n{self.assistantname}, here’s a memory from a previous conversation. "
+            f"Please use this as context when responding going forward. "
+            f"Respond in a natural and conversational tone, like in our recent exchange:\n{memory}"
+            )
+            self.add_user_message_in_context(whisper)
+        else:
+            return "[If no memory exists, respond by saying you don’t remember.]"
+       
 #대화 문맥 추가*add response 수정-> 응답객체에서 content 추출출
     def add_response(self, response):
         response_message = {
@@ -101,6 +133,7 @@ class ChatbotStream:
             "saved" : False
         }
         self.context.append(response_message)
+    
 
     def add_response_stream(self, response):
             self.context.append({
@@ -144,7 +177,12 @@ class ChatbotStream:
  
 if __name__ == "__main__":
     
-    chatbot = ChatbotStream(model.advanced,system_role=system_role,instruction=instruction,user="대기",assistant="memmo")
+    chatbot = ChatbotStream(
+        model.advanced,
+        system_role=system_role,
+        instruction=instruction,
+        user="대기",
+        assistant="memmo")
     func_calling=FunctionCalling(model.basic)
     print("===== Chatbot Started =====")
     print("초기 context:", chatbot.context)
@@ -164,34 +202,7 @@ if __name__ == "__main__":
 
         if analyzed_dict.get("tool_calls"):
             
-            '''도구 실행 결과는 assistant 역할이 아닌 tool 역할로 문맥에 추가되어야 합니다.
-                또한 tool_call_id를 포함해야 원본 함수 호출과 연결됩니다.
-                스트리밍 요청 시 문맥이 불완전합니다.
-                함수 실행 결과(tool 메시지)가 문맥에 누락되면 GPT는 도구 실행 사실을 모르고 응답을 생성합니다.
-                왜 그럼 completion호출에서는 이런 문제가 안생겼나?
-                실행을 할때 비록 복사된 문맥에서 함수호출을 하고 실행을 하지만 마지막 응답을 만들때 함수 실행결과를 포함해서
-                context.append({
-                    "tool_call_id": tool_call["id"],
-                    "role": "tool",
-                    "name": func_name, 
-                    "content": str(func_response)
-                })#실행 결과를 문맥에 추가
-                # 이런식으로 추가해줬다. 그래서 함수호출맥락을 파악한 모델은 함수호출결과를 토대로 응답을'''
-            # 도구 실행 및 결과를 문맥에 추가
-            temp_context=chatbot.to_openai_context()[:]
-            #temp_context=chatbot.context[:]
-            '''와 계속 안되다가 03/05/25
-            이부분이 문제라는걸 발견 
-            문제: 본chatbot.context에 계속 함수호출이 누적되는현상=? 함수 호출후 정상적인 결과응답을 위해서는 함수호출 문맥이 필요히나
-            출력이후에는 함수 호출맥락은 필요가 없음 그래서 함수 출력후 함수호출맥락을 삭제하려함
-            계획은 
-            임시로 만든 temp_context에 본 문맥을 복사한뒤  임시로만든 문맥으로 출력을 생성, 그럼 정상적인 출력이 될것이고 정상적인 출력만
-            뽑아내서 본 문맥에 추가할예정이었음. 
-            그런데 계속 임시에 추가된내용이 본내용에도 침해됨
-            원인
-            원인은 파이썬의 함수 참조 였음.
-            파이썬은 한번 만든 객체는 재활용하기 때문에 문제가 발생한것, 그래서 [:]로 복사를 명시했고 그결과 출력리 성공함. 
-            '''
+            temp_context=copy.deepcopy(chatbot.to_openai_context())
             temp_context.append(analyzed)
             tool_calls = analyzed_dict['tool_calls']
 
