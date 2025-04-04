@@ -525,7 +525,7 @@ suspend fun sendChatRequest(userMessage: String, onChunk: (String) -> Unit) {
         val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
         val requestBody = json.toString().toRequestBody(mediaType)
         val request = Request.Builder()
-            .url("http://0.0.0.0") // URL 확인 필요
+            .url("http://10.0.2.2:8000/stream-chat") // URL 확인 필요
             .post(requestBody)
             .build()
 
