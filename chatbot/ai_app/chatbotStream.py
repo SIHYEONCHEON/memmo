@@ -50,11 +50,10 @@ class ChatbotStream:
         if temp_context is None:
            stream = client.responses.create(
             model=self.model,
-            input=self.to_openai_context(),  # user/assistant 역할 포함된 list 구조
+            input=self.to_openai_context(),  
             
             top_p=1,
             stream=True,
-            # Responses API에 맞는 추가 구성 예시 (선택 사항)
             
             text={
                 "format": {
@@ -65,7 +64,7 @@ class ChatbotStream:
         else:  
            stream = client.responses.create(
             model=self.model,
-            input=self.to_openai_context(),  # user/assistant 역할 포함된 list 구조
+            input=temp_context,  # user/assistant 역할 포함된 list 구조
             top_p=1,
             stream=True,
             text={
@@ -189,57 +188,60 @@ if __name__ == "__main__":
         user_input = input("User > ")
         if user_input.strip().lower() == "exit":
             print("Chatbot 종료.")
-            break
+            
 
         # 사용자 메시지를 문맥에 추가
         chatbot.add_user_message_in_context(user_input)
 
         # 사용자 입력 분석 (함수 호출 여부 확인)
-        analyzed, analyzed_dict = func_calling.analyze(user_input, tools)
+        analyzed = func_calling.analyze(user_input, tools)
 
-        if analyzed_dict.get("tool_calls"):
-            
-            # 도구 실행 및 결과를 문맥에 추가
-            temp_context=chatbot.to_openai_context().copy()#chatbot.context[:]
-            #temp_context=chatbot.context[:]
-           
-            temp_context.append(analyzed)
-            tool_calls = analyzed_dict['tool_calls']
+        temp_context = chatbot.to_openai_context().copy()
+        
 
-            print(analyzed)
 
-            for tool_call in tool_calls:
-                function=tool_call["function"]
-                func_name=function["name"]
-                func_to_call = func_calling.available_functions[func_name]
-                try:
-                    func_args=json.loads(function["arguments"])#딕셔너리로 변환-> 문자열이 json형태입-> 이걸 딕셔너리로 변환
-                    func_response=func_to_call(**func_args)
-                    temp_context.append({
-                        "tool_call_id": tool_call["id"],
-                        "role": "tool",
-                        "name": func_name, 
-                        "content": str(func_response)
-                    })
-                except Exception as e:
-                    print("Error occurred(run):",e)
-                    print(makeup_response("[run 오류입니다]"))
-                # 스트리밍 출력으로 최종 응답 생성
-            streamed_response = chatbot._send_request_Stream(temp_context=temp_context)
-            temp_context=None
-            chatbot.add_response_stream(streamed_response)  # 응답을 문맥에 추가
-            print(chatbot.context)
+        for tool_call in analyzed:  # analyzed는 list of function_call dicts
+            if tool_call.type != "function_call":
+                continue
+            func_name = tool_call.name
+            func_args = json.loads(tool_call.arguments)
+            call_id = tool_call.call_id
 
-            
+            func_to_call = func_calling.available_functions.get(func_name)
+            if not func_to_call:
+                print(f"[오류] 등록되지 않은 함수: {func_name}")
+                continue
 
-            
-        else:
-            # 일반 대화 처리 (스트리밍 출력)
-            streamed_response = chatbot.send_request_Stream()
-            chatbot.clean_context()
-            chatbot.add_response_stream(streamed_response)  # 응답을 문맥에 추가
-            
+            try:
+               
+                function_call_msg = {
+                    "type": "function_call",  # 고정
+                    "call_id": call_id,  # 딕셔너리 내에 있거나 key가 다를 수 있으니 주의
+                    "name": func_name,
+                    "arguments": tool_call.arguments  # dict -> JSON string
+                }
+                print(f"함수 호출 메시지: {function_call_msg}")
+                func_response = func_to_call(**func_args)
 
-            
+                temp_context.extend([
+                    function_call_msg,
+                {
+                    "type": "function_call_output",
+                    "call_id": call_id,
+                    "output": str(func_response)
+                }
+            ])
+                print("함수 실행후 임시문맥:{}".format(temp_context))
 
-    print("===== Chatbot Finished =====")
+            except Exception as e:
+                print(f"[함수 실행 오류] {func_name}: {e}")
+
+        # 함수 결과 포함 응답 요청
+        streamed_response = chatbot._send_request_Stream(temp_context=temp_context)
+        temp_context = None
+        chatbot.add_response_stream(streamed_response)
+
+    # === 분기 처리 끝 ===
+
+    # 임시 컨텍스트 제거 (선택적)
+    

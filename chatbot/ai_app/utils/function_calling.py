@@ -87,129 +87,143 @@ def write_report(**kwargs):
     return report
 tools = [
         {
-            "type":"function",
-            "function":{
+            "type": "function",
             "name": "get_celsius_temperature",
             "description": "지정된 위치의 현재 섭씨 날씨 확인",
+            "strict": True,
             "parameters": {
                 "type": "object",
+                "required": [
+                    "location"
+                ],
                 "properties": {
                     "location": {
                         "type": "string",
-                        "description": "광역시도, e.g. 서울, 경기",
+                        "description": "광역시도, e.g. 서울, 경기"
                     }
                 },
-                "required": ["location"],
-            },
-        },
-        },
-        {
-            "type":"function",
-            "function":{
+                "additionalProperties": False
+            }
+},
+       {
+           "type": "function",
             "name": "get_currency",
             "description": "지정된 통화의 원(KRW) 기준의 환율 확인.",
+            "strict": True,
             "parameters": {
                 "type": "object",
+                "required": [
+                    "currency_name"
+                ],
                 "properties": {
                     "currency_name": {
                         "type": "string",
-                        "description": "통화명, e.g. 달러환율, 엔화환율",
+                        "description": "통화명, e.g. 달러환율, 엔화환율"
                     }
                 },
-                "required": ["currency_name"],
-            },
-        },
-        },
+                "additionalProperties": False
+            }
+},
         {
-            "type":"function",
-            "function":{
+            "type": "function",
             "name": "search_internet",
             "description": "답변 시 인터넷 검색이 필요하다고 판단되는 경우 수행",
+            "strict": True,
             "parameters": {
                 "type": "object",
+                "required": [
+                    "search_query"
+                ],
                 "properties": {
                     "search_query": {
                         "type": "string",
-                        "description": "인터넷 검색을 위한 검색어",
+                        "description": "인터넷 검색을 위한 검색어"
                     }
                 },
-                "required": ["search_query"],
+                "additionalProperties": False
             }
-        },
-        },
+},
         {
-            "type":"function",
-            "function":{
+            "type": "function",
             "name": "update_field",
-            "description": """
-            When the system detects that a user intends to update a specific field within the writing requirements, follow these steps:
-                1.  Extract the 'field name' and 'new content' from the user's provided input.
-                2.  Map the extracted 'field name' to the actual field identifier.
-                3.  Update the mapped field with the 'new content'.
-                Example:
-                * Input: 'The audience of the text is students.'
-                * Result: Update the audience_scope field with 'audience is students'.""",
-                "parameters": {
+            "description": """시스템이 사용자가 작성 요구사항 내의 특정 필드를 업데이트하려는 의도를 감지하면 다음 단계를 따르세요:
+
+                        사용자가 제공한 입력에서 'field name'과 'new content'를 추출합니다.
+                        추출된 'field name'을 실제 필드 식별자에 매핑합니다.
+                        매핑된 필드를 'new content'로 업데이트합니다.
+                        예시:
+
+                        입력: 'The audience of the text is students.'
+                        결과: audience_scope 필드를 'audience is students'로 업데이트합니다.""",
+            "strict": True,
+            "parameters": {
                 "type": "object",
-                "required": ["field_name","new_value"],
+                "required": [
+                    "field_name",
+                    "new_content"
+                ],
                 "properties": {
                     "field_name": {
                         "type": "string",
                         "description": "업데이트할 필드 이름 (writing_requirements 딕셔너리의 키)",
                         "enum": [
-                        "purpose_background",
-                        "context_topic",
-                        "audience_scope",
-                        "format_structure",
-                        "logic_evidence",
-                        "expression_method",
-                        "additional_constraints",
-                        "output_expectations"
+                            "purpose_background",
+                            "context_topic",
+                            "audience_scope",
+                            "format_structure",
+                            "logic_evidence",
+                            "expression_method",
+                            "additional_constraints",
+                            "output_expectations"
                         ]
                     },
-                    "new_value": {
+                    "new_content": {
                         "type": "string",
                         "description": "필드에 저장할 새로운 값"
-                                }
-            },
+                    }
+                },
+                "additionalProperties": False
             }
-            },
-        },
-        {
-            "type":"function",
-            "function":{
-                "name": "get_writing_requirement_field_content",
-                "description": """If the user wants to see the content of the writing
-                  requirements fields, check the fields the user wants to see
-                    (it can be one or multiple fields. If there are no fields to display,
-                      determine to display all fields). Show the content of the currently written writing requirements fields.""",
-                "parameters": {
-                    "type": "object",
-                    "required": [
-                    "field_name"
-                    ],
-                    "properties": {
+},
+       {
+            "type": "function",
+            "name": "update_field",
+            "description": """시스템이 사용자가 작성 요구 사항 내의 특정 필드를 업데이트하려고 의도하는 것을 감지하면 다음 단계를 따르세요. 
+                            현재 대화 문맥에서 'field name'과 'new_content'을 추출합니다.
+                            추출된 'field name'을 실제 field identifier에 매핑합니다.
+                            매핑된 필드를 'new_vcontent'으로 업데이트합니다.
+                            예시: 입력: '글의 대상은 학생들입니다.' 결과: audience_scope 필드를 'audience is students'로 업데이트합니다.""",
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "required": [
+                    "field_name",
+                    "new_content"
+                ],
+                "properties": {
                     "field_name": {
                         "type": "string",
-                        "description": "확인할 특정 필드 이름 (선택 사항). 생략하면 작성된 모든 필드 내용을 반환합니다.",
+                        "description": "업데이트할 필드 이름 (writing_requirements 딕셔너리의 키)",
                         "enum": [
-                        "purpose_background",
-                        "context_topic",
-                        "audience_scope",
-                        "format_structure",
-                        "logic_evidence",
-                        "expression_method",
-                        "additional_constraints",
-                        "output_expectations"
+                            "purpose_background",
+                            "context_topic",
+                            "audience_scope",
+                            "format_structure",
+                            "logic_evidence",
+                            "expression_method",
+                            "additional_constraints",
+                            "output_expectations"
                         ]
-                    }
                     },
-                
-                }
-                }
+                    "new_content": {
+                        "type": "string",
+                        "description": "필드에 저장할 새로운 대화"
+                    }
+                },
+                "additionalProperties": False  # ✅ 반드시 이 안에 위치해야 함!
             }
-
-        
+}
+      
     ]
 func_specs_report = [#병렬 시행이 아닌 순차실행행
         {
@@ -255,188 +269,47 @@ class FunctionCalling:
             "write_report": write_report
         }
         self.model = model
-        '''
-        The response has an array of tool_calls, each with an id (used later to submit the function result) 
-        and a function containing a name and JSON-encoded arguments.
-        Sample response with multiple function calls
-[
-    {
-        "id": "call_12345xyz",
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "arguments": "{\"location\":\"Paris, France\"}"
-        }
-    },
-    {
-        "id": "call_67890abc",
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "arguments": "{\"location\":\"Bogotá, Colombia\"}"
-        }
-    },
-    {
-        "id": "call_99999def",
-        "type": "function",
-        "function": {
-            "name": "send_email",
-            "arguments": "{\"to\":\"bob@email.com\",\"body\":\"Hi bob\"}"
-        }
-    }
-]
-        ('message_dict=>',
-            {'audio': None,
-            'content': None,
-            'function_call': None,
-            'refusal': None,
-            'role': 'assistant',
-            'tool_calls': [
-                                {   'function': {
-                                    'arguments': '{"location": "강원도"}',
-                                    'name': 'get_celsius_temperature'},
-                                'id': 'call_JMBuOBz9zydkgBLKn4p2VTkS',
-                                'type': 'function'
-                                    },
-                                {   'function': {
-                                    'arguments': '{"currency_name": "달러환율"}',
-                                    'name': 'get_currency'},
-                                    'id': 'call_DIv6BTRAkFDRx77vNAIiEnFO',
-                                    'type': 'function'
-                                        }
-                                    ]
-                        }
-                    )'''
+       
     def analyze(self, user_message, tools):
-        try:
-            response=client.chat.completions.create(
-                model=model.advanced,
-                messages=[{"role":"user","content":user_message}],
-                tools=tools,
-                tool_choice="auto",
-                )
-            #응답에서 메세지 추출
-            analyzed = response.choices[0].message
-            #메시지를 딕셔너리로 변경
-            '''
-        The response has an array of tool_calls, each with an id (used later to submit the function result) 
-        and a function containing a name and JSON-encoded arguments.
-        Sample response with multiple function calls
-
-           'message_dict=>',
-            {'audio': None,
-            'content': None,
-            'function_call': None,
-            'refusal': None,
-            'role': 'assistant',
-            'tool_calls': [
-                                {   'function': {
-                                    'arguments': '{"location": "강원도"}',
-                                    'name': 'get_celsius_temperature'},
-                                '   'id': 'call_JMBuOBz9zydkgBLKn4p2VTkS',
-                                    'type': 'function'
-                                    },
-                                {   'function': {
-                                    'arguments': '{"currency_name": "달러환율"}',
-                                    'name': 'get_currency'},
-                                    'id': 'call_DIv6BTRAkFDRx77vNAIiEnFO',
-                                    'type': 'function'
-                                        }
-                                    ]
-                        }
-                    )'''
-            analyzed_dict = analyzed.model_dump()
-            
-            #print("analyzed_dict ***디버그\n")
-            #print(message_dict)
-            #print('\n**********************')
-            return analyzed,analyzed_dict
-            
-        #메시지 딕셔너리를 반환=>
-        # 이후  func_name = analyzed_dict["function_call"]["name"]
-        #이런식으로 함수이름을  추출함
-        #그리고 해당이름으로 함수를 가져옴
-        # func_to_call = self.available_functions[func_name]
-        except Exception as e:
-            print("Error occurred(analyze):",e)
-            return makeup_response("[analyze 오류입니다]")
     
-    def analyze_function(self, user_message, func_specs):
-        try:
-            response = client.chat.completions.create(
-                    model=self.model,
-                    messages=[{"role": "user", "content": user_message}],
-                    functions=func_specs,
-                    function_call="auto",
-                     
-                )
-            message = response.choices[0].message
-            message_dict = message.model_dump()
-            #pprint(("message_dict=>", message_dict))
-            return message_dict
-        except Exception as e:
-            print("Error occurred(analyze):",e)
-            return makeup_response("[analyze 오류입니다]")
+            # 1. 모델 호출
+        response = client.responses.create(
+            model="gpt-4o",
+            input=user_message,
+            tools=tools,
+            tool_choice="auto"
+        )
+        return response.output
+    
 
     def run(self, analyzed, analyzed_dict, context):
-        '''"message": {
-            "role": "assistant",
-            "content": "안녕하세요! 어떻게 도와드릴까요?",
-            "function_call": {
-            * "name": "function_name",
-            *"arguments": "{\"arg1\": \"value1\", \"arg2\": \"value2\"}"
-            }
-        }
-        함수 실행에는 2개가 필요하다,실행시킬 함수와 실행시킬떄 쓰는 매개변수
-        GPT가 고른 함수이름을 가져오고 
-        func_name = analyzed_dict["function_call"]["name"] 
-        함수를 실제로 연결한다.
-        func_to_call = self.available_functions[func_name]
-        '''
+ 
         context.append(analyzed)
         tool_calls = analyzed_dict['tool_calls']
         for tool_call in tool_calls:
-            '''#최종적으로 tool_calls에서 {function:{}->1개,...} 를 넘김.
-
-            #즉 for tool_call in completion.choices[0].message.tool_calls:
-            #과 동일한 코드
-            #name = tool_call.function.name와 동일한 코드 '''
+    
             function=tool_call["function"]
             func_name=function["name"]
             #실제 함수와 연결
             func_to_call = self.available_functions[func_name]
-            '''#
-            tool_calls는
-            'function': {
-                              'arguments': '{"location": "강원도"}',
-                              'name': 'get_celsius_temperature'},
-                              'id': 'call_JMBuOBz9zydkgBLKn4p2VTkS',
-                              'type': 'function'
-                                    }가 원소인 리스트이다
-            이것은 실행시킬 함수의 목록이다. 우리는 이목록의 처음부터 순차적으로 실행시킨다->순회
-                                                
-                '''
+
             try:
-                '''처음 tool_calls 자체는 이미 딕셔너리 형태로 전달받았지만,
-                function["arguments"]의 값은 여전히 문자열(string) 형태로 존재'''
+
                 func_args=json.loads(function["arguments"])#딕셔너리로 변환-> 문자열이 json형태입-> 이걸 딕셔너리로 변환
                 func_response=func_to_call(**func_args)
-                '''
-                도구 실행 결과는 assistant 역할이 아닌 tool 역할로 문맥에 추가되어야 합니다.
-                또한 tool_call_id를 포함해야 원본 함수 호출과 연결됩니다.
-                스트리밍 요청 시 문맥이 불완전합니다.
-                함수 실행 결과(tool 메시지)가 문맥에 누락되면 GPT는 도구 실행 사실을 모르고 응답을 생성합니다.
-                '''
                 context.append({
                     "tool_call_id": tool_call["id"],
                     "role": "tool",
                     "name": func_name, 
                     "content": str(func_response)
                 })#실행 결과를 문맥에 추가
+                print("Tool calls:", analyzed_dict['tool_calls'])
+
             except Exception as e:
                 print("Error occurred(run):",e)
                 return makeup_response("[run 오류입니다]")
         return client.chat.completions.create(model=self.model,messages=context).model_dump()
+    
     def run_report(self, analyzed_dict, context):
         func_name = analyzed_dict["function_call"]["name"]
         func_to_call = self.available_functions[func_name]        
