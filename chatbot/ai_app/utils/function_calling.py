@@ -57,11 +57,95 @@ def get_currency(**kwargs):
     print("환율:", krw) 
     return krw
 
-def search_internet(**kwargs):
-    print("search_internet",kwargs)
-    answer = tavily.search(query=kwargs['search_query'], include_answer=True)['answer']
-    print("answer:",answer)
-    return answer
+def search_internet(user_input: str) -> str:
+    try:
+        print(f"📨 웹 검색 요청 시작: '{user_input}'")
+
+        # ✅ 사용자 입력을 input_text 컨텍스트로 변환
+        context_input = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": user_input
+                    }
+                ]
+            }
+        ]
+
+        response = client.responses.create(
+            model="gpt-4o",
+            input=context_input,  # ✅ 여기!
+            text={"format": {"type": "text"}},
+            reasoning={},
+            tools=[{
+                "type": "web_search_preview",
+                "user_location": {
+                    "type": "approximate",
+                    "country": "KR"
+                },
+                "search_context_size": "medium"
+            }],
+            tool_choice={"type": "web_search_preview"},
+            temperature=1,
+            max_output_tokens=2048,
+            top_p=1,
+            store=True
+        )
+        
+        # ✅ 웹 검색 수행 여부 로그
+        if any(getattr(item, "type", None) == "web_search_call" for item in getattr(response, "output", [])):
+            print("✅ 🔍 웹 검색이 실제로 수행되었습니다.")
+        else:
+            print("⚠️ 웹 검색이 수행되지 않았습니다.")
+
+        # ✅ 응답 메시지 추출
+        
+        # 1. message 객체 추출 (ResponseOutputMessage)
+        message = next(
+            (item for item in response.output if getattr(item, "type", None) == "message"),
+            None
+        )
+        if not message:
+            return "❌ GPT 응답 메시지를 찾을 수 없습니다."
+
+        # 2. content 중 output_text 블록 추출
+        content_block = next(
+            (block for block in message.content if getattr(block, "type", None) == "output_text"),
+            None
+        )
+        if not content_block:
+            return "❌ GPT 응답 내 output_text 항목을 찾을 수 없습니다."
+
+        # 3. 텍스트 추출
+        output_text = getattr(content_block, "text", "").strip()
+
+        # 4. 출처(annotation) 파싱
+        annotations = getattr(content_block, "annotations", [])
+        citations = []
+        for a in annotations:
+            if getattr(a, "type", None) == "url_citation":
+                title = getattr(a, "title", "출처")
+                url = getattr(a, "url", "")
+                citations.append(f"[{title}]({url})")
+
+        # 5. 텍스트 + 출처 조합
+        result = output_text
+        if citations:
+            result += "\n\n📎 출처:\n" + "\n".join(citations)
+        
+        return result+"이 응답 형식 그대로 출력하세요 대답과 출처가 형식 그대로 다음대답에 담겨야합니다.엄밀하게."
+
+    
+
+    except Exception as e:
+        return f"🚨 파싱 중 오류 발생: {str(e)}"
+
+
+    except Exception as e:
+        return f"🚨 오류 발생: {str(e)}"
+
 
 def search_internet_for_report(**kwargs):
     #print("search_internet",kwargs)
@@ -123,25 +207,24 @@ tools = [
                 },
                 "additionalProperties": False
             }
-},
-        {
-            "type": "function",
-            "name": "search_internet",
-            "description": "답변 시 인터넷 검색이 필요하다고 판단되는 경우 수행",
-            "strict": True,
-            "parameters": {
-                "type": "object",
-                "required": [
-                    "search_query"
-                ],
-                "properties": {
-                    "search_query": {
-                        "type": "string",
-                        "description": "인터넷 검색을 위한 검색어"
-                    }
-                },
-                "additionalProperties": False
-            }
+},{
+"type": "function",
+  "name": "search_internet",
+  "description": "Searches the internet based on user input and retrieves relevant information.",
+  "strict": True,
+  "parameters": {
+    "type": "object",
+    "required": [
+      "user_input"
+    ],
+    "properties": {
+      "user_input": {
+        "type": "string",
+        "description": "User's search query input"
+      }
+    },
+    "additionalProperties": False
+  }
 },
         {
             "type": "function",
@@ -225,36 +308,7 @@ tools = [
 }
       
     ]
-func_specs_report = [#병렬 시행이 아닌 순차실행행
-        {
-            "name": "search_internet_for_report",
-            "description": "자료를 찾기 위해 인터넷을 검색하는 함수",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "search_query": {
-                        "type": "string",
-                        "description": "인터넷 검색을 위한 검색어",
-                    }
-                },
-                "required": ["search_query"],
-            },
-        },
-        {
-            "name": "write_report",
-            "description": "수집된 정보를 바탕으로 보고서를 작성해주는 함수",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "materials": {
-                        "type": "string",
-                        "description": "사용자 메시지 중 '수집된 자료:' 리스트 안에 있는 raw data",
-                    }
-                },
-                "required": ["materials"],
-            },
-        }
-    ]
+
 
 class FunctionCalling:
     def __init__(self, model):
@@ -282,11 +336,10 @@ class FunctionCalling:
         return response.output
     
 
-    def run(self, analyzed, analyzed_dict, context):
+    def run(self, analyzed,context):
  
         context.append(analyzed)
-        tool_calls = analyzed_dict['tool_calls']
-        for tool_call in tool_calls:
+        for tool_call in analyzed:
     
             function=tool_call["function"]
             func_name=function["name"]
@@ -303,7 +356,7 @@ class FunctionCalling:
                     "name": func_name, 
                     "content": str(func_response)
                 })#실행 결과를 문맥에 추가
-                print("Tool calls:", analyzed_dict['tool_calls'])
+  
 
             except Exception as e:
                 print("Error occurred(run):",e)

@@ -73,9 +73,10 @@ class ChatbotStream:
                 }
             }
                 )
-              
+        
         loading = True  # delta가 나오기 전까지 로딩 중 상태 유지       
         for event in stream:
+            #print(f"event: {event}")
             match event.type:
                 case "response.created":
                     print("[🤖 응답 생성 시작]")
@@ -203,6 +204,7 @@ if __name__ == "__main__":
         for tool_call in analyzed:  # analyzed는 list of function_call dicts
             if tool_call.type != "function_call":
                 continue
+            
             func_name = tool_call.name
             func_args = json.loads(tool_call.arguments)
             call_id = tool_call.call_id
@@ -231,7 +233,7 @@ if __name__ == "__main__":
                     "output": str(func_response)
                 }
             ])
-                print("함수 실행후 임시문맥:{}".format(temp_context))
+               # print("함수 실행후 임시문맥:{}".format(temp_context))
 
             except Exception as e:
                 print(f"[함수 실행 오류] {func_name}: {e}")
@@ -240,6 +242,7 @@ if __name__ == "__main__":
         streamed_response = chatbot._send_request_Stream(temp_context=temp_context)
         temp_context = None
         chatbot.add_response_stream(streamed_response)
+        print(chatbot.context)
 
     # === 분기 처리 끝 ===
 
