@@ -8,13 +8,12 @@ import json
 from pinecone import Pinecone
 from ai_app.common import embedding_model, today  # today 함수 가져오기
 from db.db_manager import get_mongo_collection  # 새로 추가된 모듈
-from db.db_manager import get_pinecone_index  # Pinecone 초기화 함수 가져오기
 
 
 #벡터db 객체 생성성
-
-# Pinecone 인덱스 초기화
-pinecone_index = get_pinecone_index("memmo")
+pinecone_api_key = os.getenv("PINECONE_API_KEY")
+pc = Pinecone(pinecone_api_key)
+pinecone_index = pc.Index("memmo")
 #ai api 객체 생성
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 #몽고디비 객체 생성
@@ -29,7 +28,7 @@ file_path = os.path.join(current_dir, "..", "data", "요약된대화.json")
 with open(file_path, "r", encoding="utf-8") as f:
     summaries_list = json.load(f)
 collection_chats.delete_many({})
-#벡터db에 저장할 각벡터의 식별자
+#벡터db에 저장할 각벡터의 식별자자
 next_id = 1
 
 for list_idx, summaries in enumerate(summaries_list):

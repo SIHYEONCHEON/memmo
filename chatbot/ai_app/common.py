@@ -8,6 +8,8 @@ import pytz
 class Model: 
     basic: str = "gpt-3.5-turbo-1106"
     advanced: str = "gpt-4-1106-preview"
+    o3_mini: str ="o3-mini"
+    o1: str = "o1"
 
 @dataclass(frozen=True)
 class EmbeddingModel:

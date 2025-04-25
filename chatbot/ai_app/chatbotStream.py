@@ -83,6 +83,7 @@ class ChatbotStream:
                     loading = True
                     # 로딩 애니메이션용 대기 시작
                     print("⏳ GPT가 응답을 준비 중입니다...")
+                    
                 case "response.output_text.delta":
                     if loading:
                         print("\n[💬 응답 시작됨 ↓]")

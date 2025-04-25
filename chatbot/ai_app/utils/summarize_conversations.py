@@ -28,10 +28,9 @@ def summarize_conversation(conversation):
         #dumps는 json형식을 문자열로 변환(loads는 문자열을 json형식으로 변환)
         conversation_str = json.dumps(conversation, ensure_ascii=False)
         message = [{"role": "user", "content": system_role}, {"role": "assistant", "content": conversation_str}]
-        response=client.chat.completions.create(
+        response=client.responses.create(
             model=model.advanced,
-            messages=message,
-            temperature=0,
+            input=message,
             response_format={"type": "json_object"}
         ).model_dump()
         content=response['choices'][0]['message']['content']

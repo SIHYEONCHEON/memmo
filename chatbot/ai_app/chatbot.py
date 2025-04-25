@@ -62,33 +62,8 @@ class Chatbot:
             
         return response
     def send_request(self):
-        memory_instruction = self.search_memory_inDB()
-        self.context[-1]['content'] += self.instruction + (memory_instruction if memory_instruction else "")
+        self.context[-1]['content'] += self.instruction
         return self._send_request()
-    
-    def search_memory_inDB(self):
-        '''
-        Context에 없는 내용을 사용자가 물으면 DB에서 검색한다.
-        memoryManager.retrieve_memory()에서 사용자 질의로 벡터 검색을 해 몽고에서 데이터를 가져온다.
-        검색 데이터가 없다면 NONE을 반환->이때 우리는 해당 기억이 없다는 내용을 자연스럽게 사용자에게 전달한다.
-        '''
-        
-        #AI에게 보내기전, 문맥에서 마지막 사용자 메세지를 가져와 DB에 검색해야 되는지를 판단한다.
-        user_message= self.context[-1]['content'] 
-        if not self.memoryManager.needs_memory(user_message):#기억할 필요가 없다면 기억검색을 하지않는다.
-            return
-        else:
-            memory = self.memoryManager.retrieve_memory(user_message) #검색한다, 검색결과가 있다면 기억이 들어가고 없거나 유사도가 낮다면 NONE을 반환한다
-        if memory is not None:
-            whisper = (
-            f"[Whisper]\n{self.assistantname}, here’s a memory from a previous conversation. "
-            f"Please use this as context when responding going forward. "
-            f"Respond in a natural and conversational tone, like in our recent exchange:\n{memory}"
-            )
-            self.add_user_message_in_context(whisper)
-        else:
-            return "[If no memory exists, respond by saying you don’t remember.]"
-
     
 #대화 문맥 추가*add response 수정-> 응답객체에서 content 추출출
     def add_response(self, response):

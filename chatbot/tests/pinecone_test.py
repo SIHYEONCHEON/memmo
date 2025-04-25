@@ -1,5 +1,4 @@
 from openai import OpenAI
-from ai_app.common import EmbeddingModel
 
 import time
 import os
@@ -16,8 +15,8 @@ text2 = """
 컴퓨터 구조는 CPU, 메모리, 입출력 장치 등으로 구성되며, 이들은 버스로 연결됩니다. CPU는 명령어를 실행하고, 메모리는 데이터와 프로그램을 저장합니다. 입출력 장치는 사용자와 시스템 간의 상호작용을 담당합니다. 이 구성요소들은 소프트웨어와 하드웨어의 효율적인 동작을 위해 설계되었습니다.
 """
 
-vector1 = client.embeddings.create(input=text1, model=EmbeddingModel.ada).data[0].embedding
-vector2 = client.embeddings.create(input=text2, model=EmbeddingModel.ada).data[0].embedding
+vector1 = client.embeddings.create(input=text1, model="text-embedding-ada-002").data[0].embedding
+vector2 = client.embeddings.create(input=text2, model="text-embedding-ada-002").data[0].embedding
 '''upsert는 "update"와 "insert"의 합성어로, 데이터베이스 작업에서 
   "존재하면 업데이트하고, 존재하지 않으면 삽입한다" 라는 의미
   upsert 작동 방식:
@@ -53,7 +52,7 @@ query_vector = client.embeddings.create(input=query, model="text-embedding-ada-0
 
 search_response = index.query(
     filter={"input_date": "20230801"},
-    top_k=2,  # top_k 값을 늘림
+    top_k=10,  # top_k 값을 늘림
     vector=query_vector,
     namespace="test1"
 )

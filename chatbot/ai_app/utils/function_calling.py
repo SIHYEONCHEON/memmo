@@ -207,25 +207,26 @@ tools = [
                 },
                 "additionalProperties": False
             }
-},{
-"type": "function",
-  "name": "search_internet",
-  "description": "Searches the internet based on user input and retrieves relevant information.",
-  "strict": True,
-  "parameters": {
-    "type": "object",
-    "required": [
-      "user_input"
-    ],
-    "properties": {
-      "user_input": {
-        "type": "string",
-        "description": "User's search query input"
-      }
-    },
-    "additionalProperties": False
-  }
-},
+            },
+            {
+            "type": "function",
+            "name": "search_internet",
+            "description": "Searches the internet based on user input and retrieves relevant information.",
+            "strict": True,
+            "parameters": {
+                "type": "object",
+                "required": [
+                "user_input"
+                ],
+                "properties": {
+                "user_input": {
+                    "type": "string",
+                    "description": "User's search query input"
+                }
+                },
+                "additionalProperties": False
+            }
+            },
         {
             "type": "function",
             "name": "update_field",
@@ -233,11 +234,20 @@ tools = [
 
                         사용자가 제공한 입력에서 'field name'과 'new content'를 추출합니다.
                         추출된 'field name'을 실제 필드 식별자에 매핑합니다.
-                        매핑된 필드를 'new content'로 업데이트합니다.
+                        매핑된 필드를 'new content'로 전달합니다.
                         예시:
 
                         입력: 'The audience of the text is students.'
-                        결과: audience_scope 필드를 'audience is students'로 업데이트합니다.""",
+                        결과: audience_scope 필드를 new_contents 'audience is students'로 업데이트합니다.
+                        의도란 : "나는 일기를 쓸거야" 라는 입력에 대해 사용자가 일기를 쓰고 싶어한다는 의도를 감지해 당신이 가진 "purpose_background",
+                            "context_topic",
+                            "audience_scope",
+                            "format_structure",
+                            "logic_evidence",
+                            "expression_method",
+                            "additional_constraints",
+                            "output_expectations" 중 어떤게 적합한지 정해 사용자의 입력된 정보를 업데이트하는겁니다다
+                        """,
             "strict": True,
             "parameters": {
                 "type": "object",
@@ -269,43 +279,40 @@ tools = [
             }
 },
        {
-            "type": "function",
-            "name": "update_field",
-            "description": """시스템이 사용자가 작성 요구 사항 내의 특정 필드를 업데이트하려고 의도하는 것을 감지하면 다음 단계를 따르세요. 
-                            현재 대화 문맥에서 'field name'과 'new_content'을 추출합니다.
-                            추출된 'field name'을 실제 field identifier에 매핑합니다.
-                            매핑된 필드를 'new_vcontent'으로 업데이트합니다.
-                            예시: 입력: '글의 대상은 학생들입니다.' 결과: audience_scope 필드를 'audience is students'로 업데이트합니다.""",
-            "strict": True,
-            "parameters": {
-                "type": "object",
-                "required": [
-                    "field_name",
-                    "new_content"
-                ],
-                "properties": {
+            "type":"function",
+            
+                "name": "get_writing_requirement_field_content",
+                "description": """사용자가 작성 요구 사항 필드의 내용을 보길 원하면, 사용자가 보고 싶어하는 필드를 확인하세요 (하나 또는 여러 필드를 선택할 수 있습니다. 표시할 필드가 없으면 모든 필드를 표시하기로 결정하세요). 현재 작성된 작성 요구 사항 필드의 내용을 보여주세요..""",
+                "strict": True,
+                "parameters": {
+                    "type": "object",
+                    "required": [
+                    "field_name"
+                    ],
+                    "properties": {
+
                     "field_name": {
                         "type": "string",
-                        "description": "업데이트할 필드 이름 (writing_requirements 딕셔너리의 키)",
+                        "description": "확인할 특정 필드 이름 (선택 사항). 생략하면 작성된 모든 필드 내용을 반환합니다.",
                         "enum": [
-                            "purpose_background",
-                            "context_topic",
-                            "audience_scope",
-                            "format_structure",
-                            "logic_evidence",
-                            "expression_method",
-                            "additional_constraints",
-                            "output_expectations"
+                        "purpose_background",
+                        "context_topic",
+                        "audience_scope",
+                        "format_structure",
+                        "logic_evidence",
+                        "expression_method",
+                        "additional_constraints",
+                        "output_expectations"
                         ]
-                    },
-                    "new_content": {
-                        "type": "string",
-                        "description": "필드에 저장할 새로운 대화"
                     }
-                },
-                "additionalProperties": False  # ✅ 반드시 이 안에 위치해야 함!
+                    },
+                "additionalProperties": False
+                
+                }
+
+
+
             }
-}
       
     ]
 

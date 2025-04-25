@@ -123,14 +123,15 @@ async def stream_chat(user_input: UserRequest):
             for event in stream:
                         match event.type:
                             case "response.created":
-                                yield "[🤖 응답 생성 시작]\n"
+                                print("[🤖 응답 생성 시작]")
                                 loading = True
                                 # 로딩 애니메이션용 대기 시작
                                 yield "⏳ GPT가 응답을 준비 중입니다..."
                                 await asyncio.sleep(0)
                             case "response.output_text.delta":
                                 if loading:
-                                    yield "\n[💬 응답 시작됨 ↓]\n"
+                                    print("\n[💬 응답 시작됨 ↓]")
+
                                     loading = False
                                 # 글자 단위 출력
                                 yield f"{event.delta}"
@@ -138,6 +139,7 @@ async def stream_chat(user_input: UserRequest):
                             
 
                             case "response.in_progress":
+                                print("[🌀 응답 생성 중...]")
                                 yield "[🌀 응답 생성 중...]"
                                 yield "\n"
 
@@ -159,8 +161,10 @@ async def stream_chat(user_input: UserRequest):
                                 yield "\n"
                                 #print(f"\n📦 최종 전체 출력: \n{completed_text}")
                             case "response.failed":
+                                print("❌ 응답 생성 실패")
                                 yield "❌ 응답 생성 실패"
                             case "error":
+                                print("⚠️ 스트리밍 중 에러 발생!")
                                 yield "⚠️ 스트리밍 중 에러 발생!"
                             case _:
                                 yield "\n"
