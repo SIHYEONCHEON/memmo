@@ -338,7 +338,8 @@ class FunctionCalling:
             model="gpt-4o",
             input=user_message,
             tools=tools,
-            tool_choice="auto"
+            tool_choice="auto",
+            
         )
         return response.output
     
@@ -347,7 +348,8 @@ class FunctionCalling:
  
         context.append(analyzed)
         for tool_call in analyzed:
-    
+            if tool_call.get("type") != "function_call":
+                continue
             function=tool_call["function"]
             func_name=function["name"]
             #실제 함수와 연결
@@ -361,14 +363,15 @@ class FunctionCalling:
                     "tool_call_id": tool_call["id"],
                     "role": "tool",
                     "name": func_name, 
-                    "content": str(func_response)
+                    "content": str(func_response),
+                    "parallel_tool_calls": True
                 })#실행 결과를 문맥에 추가
   
 
             except Exception as e:
                 print("Error occurred(run):",e)
                 return makeup_response("[run 오류입니다]")
-        return client.chat.completions.create(model=self.model,messages=context).model_dump()
+        return client.responses.create(model=self.model,input=context).model_dump()
     
     def run_report(self, analyzed_dict, context):
         func_name = analyzed_dict["function_call"]["name"]
@@ -397,3 +400,4 @@ class FunctionCalling:
         except Exception as e:
             print("Error occurred(call_function):",e)
             return makeup_response("[call_function 오류입니다]")
+    

@@ -234,7 +234,7 @@ if __name__ == "__main__":
                     "output": str(func_response)
                 }
             ])
-               # print("함수 실행후 임시문맥:{}".format(temp_context))
+              #  print("함수 실행후 임시문맥:{}".format(temp_context))
 
             except Exception as e:
                 print(f"[함수 실행 오류] {func_name}: {e}")
@@ -243,7 +243,7 @@ if __name__ == "__main__":
         streamed_response = chatbot._send_request_Stream(temp_context=temp_context)
         temp_context = None
         chatbot.add_response_stream(streamed_response)
-        print(chatbot.context)
+        #print(chatbot.context)
 
     # === 분기 처리 끝 ===
 

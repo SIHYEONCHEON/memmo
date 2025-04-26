@@ -42,23 +42,37 @@ class WritingRequirementsManager:
                 combined_content = str(new_content) # 이전 내용이 None이면 새 값만 사용
             try:
                 response = client.responses.create(
-                    model=model.advanced, # 요약에 적합한 모델 사용 (model.summarize 가 정의되어 있다고 가정)
+                    model=model.advanced, 
                     input=[
-                        {"role": "user", "content": f"다음 텍스트를{field_name} 에맞게  (필드에 목적에 맞게 글쓰기에 사용할 수 있게 요약하라;다음 지침을 반드시 따르시오 1.맨처음 어떤 내용이 있는지 현재 문맥을 인공지능에게 알린후 인공지능이 문맥을 요약할때 팁을 '팁:1(팁1내용);팁2(티12내용), ' 2개 적어라. 이후 초반부터 마지막 내용을 순차적으로 지침과 팁에 맞게 요약하라;, :\n{combined_content}"}
+                        {"role": "user", "content": f"""
+                         다음 원본 텍스트를 /원본:{field_name}/ 필드에 목적에 맞게 글쓰기에 사용할 수 있게 요약하라 
+                         (요약시 원본속에 답긴 모든 정보는 살려라  중복은 다듬어라.);
+                         다음 지침을 반드시 따르시오 
+                         1.당신은 사용자의 글목적을 정리합니다.
+                         이후 당신이 적은내용을 글쓰기에 활용됩니다. 즉 당신은 대화에서 나온내용을 계속 정리하돼 요약시 이전 정보를 지워서는 안됩니다.
+                         2.
+                         맨처음부분에 어떤 내용이 있는지 현재 문맥을 다음 당신이 요약할때 도움이되는 내용을 팁 1로 알리세요 
+                         사용자는~를 바라고 있어서 ~를 도와줘야됨. 이런식입니다. . 팁2에는 사용자의 요구사항을 정리해나가세요.
+                           이전요구사항들도 계속 누적되어야합니다.  인공지능이 문맥을 요약할때 팁을 '팁:1(팁1내용);팁2(티12내용), ' 2개 적어라.
+                             이후 초반부터 마지막 내용을 순차적으로 지침과 팁에 맞게 요약하라;, :\n{combined_content}"""}
                     ],
                 )
-                summarized_content = response.choices[0].message.content # 요약된 내용 추출
+                summarized_content = response.output_text # 요약된 내용 추출
                 self.writing_requirements[field_name] = summarized_content
-                print(f"필드 '{field_name}' 업데이트 및 요약 완료:")
+                print(f"DEBUG:필드 '{field_name}' 업데이트 및 요약 완료:")
                 print(self.get_field_content(field_name))
+                return f"사용자가 요청한 업데이트 필드 '{field_name}' 업데이트 및 요약 완료를 알려라. 1문장 짧게..이후 관련 되어 궁금하거나 도움이될수있는 질문을 던져라"
+
             except Exception as e: # GPT API 호출 실패 시 예외 처리
-                print(f"GPT API 요약 오류 발생 (필드 '{field_name}' 업데이트): {e}")
+                print(f"DEBUG: \n GPT API 요약 오류 발생 (필드 '{field_name}' 업데이트): {e}")
                 self.writing_requirements[field_name] = new_content # 요약 실패 시 새 값으로만 업데이트 (fallback)
-                print(f"필드 '{field_name}' 새 내용으로 업데이트 (요약 생략):")
+                print(f"DEBUG: \n필드 '{field_name}' 새 내용으로 업데이트 (요약 생략):")
                 print(self.get_field_content(field_name))
+                return "사용자가 요청한  GPT API 요약 오류 발생을 알려라 1문장 짧게.이후 관련 되어 궁금하거나 도움이될수있는 질문을 던져라.(필드 '{field_name}' 업데이트): {e}"
 
         elif not field_name or not new_content:
               print(f"오류: 필드 '{field_name}'가 존재하지 않습니다.")
+              return f"오류: 필드 '{field_name}'가 존재하지 않음을 알려라.memmoCopany@000-0000에게 건의하라고 알려라.."
     def get_requirements(self):
         """
         현재 writing_requirements 딕셔너리를 반환합니다.
@@ -82,11 +96,12 @@ class WritingRequirementsManager:
             if field_name in self.writing_requirements:
                 content = self.writing_requirements[field_name]
                 if content: # 필드에 내용이 있는 경우
-                    return print(f"'{field_name}' 필드 내용:\n{content}")
-                else: # 필드에 내용이 없는 경우
-                    return print(f"'{field_name}' 필드에는 아직 작성된 내용이 없습니다.")
+                    #print(f"'{field_name}' 필드 내용:\n{content}")      
+                    return f"'{field_name}' 필드 내용:\n{content}" 
+                    
             else: # 존재하지 않는 필드 이름
-                return print(f"오류: 필드 '{field_name}'는 존재하지 않습니다.")
+                #print(f"오류: 필드 '{field_name}'는 존재하지 않습니다.")
+                return f"오류: 필드 '{field_name}'는 존재하지 않습니다.사용자에게 찾아봤으나 현재 요청한 내용을 지원못한다고 알리세요 "
 
         else: # 2. 작성된 필드에 대한 내용 출력 요청 (field_name is None)
             written_fields = []
@@ -95,9 +110,11 @@ class WritingRequirementsManager:
                     written_fields.append(f"- {name}: {content}")
 
             if written_fields: # 작성된 필드가 있는 경우
-                return print("현재 작성된 글쓰기 요구사항 필드:\n" + "\n".join(written_fields))
+                #print("현재 작성된 글쓰기 요구사항 필드:\n" + "\n".join(written_fields))
+                return "현재 작성된 글쓰기 요구사항 필드:\n" + "\n".join(written_fields)
             else: # 작성된 필드가 없는 경우
-                return print("작성된 글쓰기 요구사항이 아직 없습니다.")
+                #print("작성된 글쓰기 요구사항이 아직 없습니다.")
+                return "작성된 글쓰기 요구사항이 아직 없습니다. 이야기를 조금 더 나누어야 된다고 알리세요 "
     
     def reset_requirements(self):
         """
