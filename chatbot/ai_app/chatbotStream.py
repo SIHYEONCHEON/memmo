@@ -215,6 +215,7 @@ if __name__ == "__main__":
                 print(f"[오류] 등록되지 않은 함수: {func_name}")
                 continue
 
+
             try:
                
                 function_call_msg = {
@@ -224,7 +225,12 @@ if __name__ == "__main__":
                     "arguments": tool_call.arguments  # dict -> JSON string
                 }
                 print(f"함수 호출 메시지: {function_call_msg}")
-                func_response = func_to_call(**func_args)
+                if func_name == "search_internet":
+                    # context는 이미 run 메서드의 매개변수로 받고 있음
+                    func_response = func_to_call(chat_context=chatbot.context[:], **func_args)
+                else:
+                    func_response=func_to_call(**func_args)
+                
 
                 temp_context.extend([
                     function_call_msg,
@@ -243,9 +249,8 @@ if __name__ == "__main__":
         streamed_response = chatbot._send_request_Stream(temp_context=temp_context)
         temp_context = None
         chatbot.add_response_stream(streamed_response)
-        #print(chatbot.context)
+        print(chatbot.context)
 
     # === 분기 처리 끝 ===
 
-    # 임시 컨텍스트 제거 (선택적)
     
