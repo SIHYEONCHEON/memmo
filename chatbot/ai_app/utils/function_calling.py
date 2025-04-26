@@ -57,26 +57,62 @@ def get_currency(**kwargs):
     print("환율:", krw) 
     return krw
 
-def search_internet(user_input: str) -> str:
+def search_internet(user_input: str,chat_context=None) -> str:
+    
     try:
         print(f"📨 웹 검색 요청 시작: '{user_input}'")
 
         # ✅ 사용자 입력을 input_text 컨텍스트로 변환
+       
+        if chat_context:
+            print("🔄 문맥 처리 시작")
+        # 최근 N개의 메시지만 포함 (너무 많은 문맥은 토큰을 낭비할 수 있음)
+            recent_messages = chat_context[-3:]  # 최근 3개 메시지만 사용
+            print(f"📋 최근 메시지 수: {len(recent_messages)}")
+            # 문맥 정보를 추가 컨텍스트로 구성
+            for i, msg in enumerate(recent_messages):
+                    print(f"📝 메시지 {i + 1} 역할: {msg.get('role', 'unknown')}")
+                    content_preview = str(msg.get('content', ''))[:50] + "..." if len(str(msg.get('content', ''))) > 50 else str(msg.get('content', ''))
+                    print(f"📄 내용 미리보기: {content_preview}")
+
+            context_info = "\n".join([
+                f"{msg.get('role', 'unknown')}: {msg.get('content', '')}" 
+                for msg in recent_messages if msg.get('role') != 'system'
+            ])
+            
+            
+            search_text = client.responses.create(
+                model="gpt-4o",
+                input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"{user_input}\n\n[대화 문맥]: {context_info} 을 제공된 문맥에 맞게 검색어를 새로 만들어라 <예)/>  문맥: 창업가양성교육...; 사용자 요청:25년 정보로 검색해줘; 검색어[창업양성교육 25년]검색어는 단어의 조합이어야된다.</예예>"
+                        }
+                    ]
+                }
+            ],
+        ).output_text
+            #print("문맥DEBUG!!!!!!!!!!!!!!!!!!")
+            #print(search_text)
+            #print("\n\n\n\n")
+        else:
+            search_text = user_input 
+            #print("없는 문맥DEBUG!!!!!!!!!!!!!!!!!!")
+            #print(search_text)
+            #print("\n\n\n\n")
         context_input = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": user_input
-                    }
-                ]
-            }
-        ]
+        {
+            "role": "user",
+            "content": [{"type": "input_text", "text": search_text}]
+        }
+    ]
 
         response = client.responses.create(
             model="gpt-4o",
-            input=context_input,  # ✅ 여기!
+            input=context_input,  
             text={"format": {"type": "text"}},
             reasoning={},
             tools=[{
@@ -101,37 +137,45 @@ def search_internet(user_input: str) -> str:
             print("⚠️ 웹 검색이 수행되지 않았습니다.")
 
         # ✅ 응답 메시지 추출
-        
+        print("DEBUG: Extracting message object from response.output")
+
         # 1. message 객체 추출 (ResponseOutputMessage)
         message = next(
             (item for item in response.output if getattr(item, "type", None) == "message"),
             None
         )
         if not message:
+            print("DEBUG: No message found")
             return "❌ GPT 응답 메시지를 찾을 수 없습니다."
 
         # 2. content 중 output_text 블록 추출
+        print("DEBUG: Looking for output_text block in message.content")
         content_block = next(
             (block for block in message.content if getattr(block, "type", None) == "output_text"),
             None
         )
         if not content_block:
+            print("DEBUG: output_text block not found")
             return "❌ GPT 응답 내 output_text 항목을 찾을 수 없습니다."
 
         # 3. 텍스트 추출
         output_text = getattr(content_block, "text", "").strip()
+        print(f"DEBUG: Extracted output_text: {output_text}")
 
         # 4. 출처(annotation) 파싱
         annotations = getattr(content_block, "annotations", [])
+        print(f"DEBUG: Annotations: {annotations}")
         citations = []
         for a in annotations:
             if getattr(a, "type", None) == "url_citation":
-                title = getattr(a, "title", "출처")
-                url = getattr(a, "url", "")
-                citations.append(f"[{title}]({url})")
+                print(f"DEBUG: Found url_citation: {a}")
+            title = getattr(a, "title", "출처")
+            url = getattr(a, "url", "")
+            citations.append(f"[{title}]({url})")
 
         # 5. 텍스트 + 출처 조합
         result = output_text
+        print(f"DEBUG: Collected citations: {citations}")
         if citations:
             result += "\n\n📎 출처:\n" + "\n".join(citations)
         
@@ -221,62 +265,86 @@ tools = [
                 "properties": {
                 "user_input": {
                     "type": "string",
-                    "description": "User's search query input"
+                    "description": "User's search query input(conversation context will be automatically added)"
                 }
                 },
                 "additionalProperties": False
             }
             },
         {
-            "type": "function",
-            "name": "update_field",
-            "description": """시스템이 사용자가 작성 요구사항 내의 특정 필드를 업데이트하려는 의도를 감지하면 다음 단계를 따르세요:
+  "type": "function",
+  "name": "update_field",
+  "description": """
+시스템이 사용자가 작성 요구사항 내의 특정 필드를 업데이트하려는 의도를 감지하면 다음 단계를 따르세요:
 
-                        사용자가 제공한 입력에서 'field name'과 'new content'를 추출합니다.
-                        추출된 'field name'을 실제 필드 식별자에 매핑합니다.
-                        매핑된 필드를 'new content'로 전달합니다.
-                        예시:
+1. 입력에서 ‘새로운 정보(new_content)’를 추출합니다.(1. new_content 정제  
+   1.1. 문장 부호(. , “ ” ‘ ’ 등) 제거  
+   1.2. 불필요 조사·접속사(는/은/이/가, 그리고/하지만 등) 간략히 필터링  
+   1.3. 특수문자(# $ % & * 등) 트리밍 )
 
-                        입력: 'The audience of the text is students.'
-                        결과: audience_scope 필드를 new_contents 'audience is students'로 업데이트합니다.
-                        의도란 : "나는 일기를 쓸거야" 라는 입력에 대해 사용자가 일기를 쓰고 싶어한다는 의도를 감지해 당신이 가진 "purpose_background",
-                            "context_topic",
-                            "audience_scope",
-                            "format_structure",
-                            "logic_evidence",
-                            "expression_method",
-                            "additional_constraints",
-                            "output_expectations" 중 어떤게 적합한지 정해 사용자의 입력된 정보를 업데이트하는겁니다다
-                        """,
-            "strict": True,
-            "parameters": {
-                "type": "object",
-                "required": [
-                    "field_name",
-                    "new_content"
-                ],
-                "properties": {
-                    "field_name": {
-                        "type": "string",
-                        "description": "업데이트할 필드 이름 (writing_requirements 딕셔너리의 키)",
-                        "enum": [
-                            "purpose_background",
-                            "context_topic",
-                            "audience_scope",
-                            "format_structure",
-                            "logic_evidence",
-                            "expression_method",
-                            "additional_constraints",
-                            "output_expectations"
-                        ]
-                    },
-                    "new_content": {
-                        "type": "string",
-                        "description": "필드에 저장할 새로운 값"
-                    }
-                },
-                "additionalProperties": False
-            }
+2. 아래의 기준에 따라 ‘field_name’을 결정합니다:
+   • purpose_background  
+     –사용자가 ‘이유’, ‘목적’, ‘배경’을 언급할 때  
+     – 예: “나는 일기를 쓰려 해요”, “이 프로젝트의 목적은…”  
+   • context_topic  
+     – 글의 ‘주제’, ‘이야기거리’, ‘사례’ 등을 지칭할 때  
+     – 예: “주제는 환경보호입니다”, “사례로 코로나 이후…”  
+   • audience_scope  
+     – ‘대상’, ‘독자’, ‘누구에게’ 같은 단어가 있을 때  
+     – 예: “독자는 학생들입니다”, “대상은 초보개발자”  
+   • format_structure  
+     – ‘형식’, ‘구조’, ‘목차’, ‘파트’ 등을 지정할 때  
+     – 예: “포맷은 보고서 형태로”, “1. 서론, 2. 본론…”  
+   • logic_evidence  
+     – ‘논리적 흐름’, ‘근거’, ‘데이터’, ‘사례’ 등을 언급 할때때 
+     – 예: “우리가 전에 검색한 내용 있잖아..”, “조금 더 논리적으로 했으면 좋겠어어”  
+   • expression_method  
+     – ‘어조’, ‘스타일’, ‘톤’, ‘문체’ 언급 시  
+     – 예: “친근한 어조로”, “격식 있는 문체로”  
+   • additional_constraints  
+     – ‘제한’, ‘금지’, ‘분량’, ‘키워드’ 같은 부가조건 언급 시  
+     – 예: “500자 이내로”, “‘AI’라는 단어는 빼고” ,"이다 말고 음슴 식의 개조체로.."
+   • output_expectations  
+     – 최종 산출물 형태나 품질 기준 언급 시  
+     – 예: “슬라이드로 만들어줘”, “요약문 형태로” ,"회사의 양식을 줄게 그거에 따라서 적어줘줘"
+
+3. 추출된 ‘field_name’과 ‘new_content’를 파라미터로 호출합니다.
+
+예시:
+입력: “청중은 대학원생입니다.”
+→ field_name: “audience_scope”
+   new_content: “대학원생”
+4.new_content는 현재 재화맥락 전체를 고려해라  (예) 만약 이전에 사용자가 검색을 한 문맥이 있는데 사용자가 근거를 업데이트해 하면 이전에 검색한 내용을 기반으로 newcontent를 만들어라- 단 최근 3개 대화만을 고려. 
+""",
+  "strict": True,
+  "parameters": {
+    "type": "object",
+    "required": [
+      "field_name",
+      "new_content"
+    ],
+    "properties": {
+      "field_name": {
+        "type": "string",
+        "description": "업데이트할 필드 이름 (writing_requirements 딕셔너리의 키)",
+        "enum": [
+          "purpose_background",
+          "context_topic",
+          "audience_scope",
+          "format_structure",
+          "logic_evidence",
+          "expression_method",
+          "additional_constraints",
+          "output_expectations"
+        ]
+      },
+      "new_content": {
+        "type": "string",
+        "description": "필드에 저장할 새로운 값"
+      }
+    },
+    "additionalProperties": False
+  }
 },
        {
             "type":"function",
@@ -332,10 +400,12 @@ class FunctionCalling:
         self.model = model
        
     def analyze(self, user_message, tools):
+        if not user_message or user_message.strip() == "":
+            return {"type": "error", "message": "입력이 비어있습니다. 질문을 입력해주세요."}
     
             # 1. 모델 호출
         response = client.responses.create(
-            model="gpt-4o",
+            model=model.o3_mini,
             input=user_message,
             tools=tools,
             tool_choice="auto",
@@ -358,7 +428,12 @@ class FunctionCalling:
             try:
 
                 func_args=json.loads(function["arguments"])#딕셔너리로 변환-> 문자열이 json형태입-> 이걸 딕셔너리로 변환
-                func_response=func_to_call(**func_args)
+                
+                if func_name == "search_internet":
+                    # context는 이미 run 메서드의 매개변수로 받고 있음
+                    func_response = func_to_call(chat_context=context[:], **func_args)
+                else:
+                    func_response=func_to_call(**func_args)
                 context.append({
                     "tool_call_id": tool_call["id"],
                     "role": "tool",
