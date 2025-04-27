@@ -88,7 +88,11 @@ async def stream_chat(user_input: UserRequest):
                     "arguments": tool_call.arguments  # dict -> JSON string
                 }
                 print(f"함수 호출 메시지: {function_call_msg}")
-                func_response = func_to_call(**func_args)
+                if func_name == "search_internet":
+                    # context는 이미 run 메서드의 매개변수로 받고 있음
+                   func_response = func_to_call(chat_context=chatbot.context[:], **func_args)
+                else:
+                   func_response = func_to_call(**func_args)
 
                 temp_context.extend([
                     function_call_msg,
