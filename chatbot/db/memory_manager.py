@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 import os
-from ai_app.common import today
+from ai_app.assist.common import today
 from .db_manager import get_mongo_collection  # 새로 추가된 모듈
 
 mongo_cluster=MongoClient(os.getenv("MONGO_CLUSTER_URI"))

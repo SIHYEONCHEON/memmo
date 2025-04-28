@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 현재 스크립트의 디렉토리 부모 디렉토리(chatbot/)를 시스템 경로에 추가
 import json
 from pinecone import Pinecone
-from ai_app.common import embedding_model, today  # today 함수 가져오기
+from ai_app.assist.common import embedding_model, today  # today 함수 가져오기
 from db.db_manager import get_mongo_collection  # 새로 추가된 모듈
 
 

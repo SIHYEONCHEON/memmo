@@ -1,6 +1,6 @@
-from ai_app.common import client,model
+from ai_app.assist.common import client,model
 import json
-from ai_app.characters import system_role
+from ai_app.assist.characters import system_role
 prompt='''
 -당신은 사용자와 글쓰기 도움이인 챗봇 사이의 대화데이터를 만듭니다.
 -Each conversation dataset should involve different writing formats (e.g., journal, article, poem, letter) and explore a variety of topics to ensure richness and versatility.

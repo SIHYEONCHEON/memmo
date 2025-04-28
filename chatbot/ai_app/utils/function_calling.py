@@ -1,4 +1,4 @@
-from ai_app.common import client, model, makeup_response
+from ai_app.assist.common import client, model, makeup_response
 import json
 import requests
 from pprint import pprint
@@ -95,14 +95,14 @@ def search_internet(user_input: str,chat_context=None) -> str:
                 }
             ],
         ).output_text
-            #print("문맥DEBUG!!!!!!!!!!!!!!!!!!")
-            #print(search_text)
-            #print("\n\n\n\n")
+            print("문맥DEBUG!!!!!!!!!!!!!!!!!!")
+            print(search_text)
+            print("\n\n\n\n")
         else:
             search_text = user_input 
-            #print("없는 문맥DEBUG!!!!!!!!!!!!!!!!!!")
-            #print(search_text)
-            #print("\n\n\n\n")
+            print("없는 문맥DEBUG!!!!!!!!!!!!!!!!!!")
+            print(search_text)
+            print("\n\n\n\n")
         context_input = [
         {
             "role": "user",

@@ -1,6 +1,6 @@
-from ai_app.common import client, model,makeup_response
+from ai_app.assist.common import client, model,makeup_response
 import sys
-from ai_app.characters import instruction,system_role
+from ai_app.assist.characters import instruction,system_role
 import math
 from ai_app.utils.function_calling import FunctionCalling,tools
 from db.memory_manager import MemoryManager

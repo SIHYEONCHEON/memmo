@@ -4,10 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from ai_app.chatbot import Chatbot  # 기존 코드의 Chatbot 클래스 임포트
 from ai_app.chatbotStream import ChatbotStream
-from ai_app.common import client, model
+from ai_app.assist.common import client, model
 from fastapi.responses import StreamingResponse
 import asyncio
-from ai_app.characters import instruction,system_role
+from ai_app.assist.characters import instruction,system_role
 from ai_app.utils.function_calling import FunctionCalling, tools # 단일 함수 호출
 from contextlib import asynccontextmanager
 

@@ -1,6 +1,6 @@
 import json
-from ai_app.common import client, model,makeup_response
-
+from ai_app.assist.common import client, model,makeup_response
+from ai_app.assist.characters import get_update_field_prompt  # 추가된 부분
 class WritingRequirementsManager:
     def __init__(self):
         '''"purpose_background": 목적 및 배경
@@ -41,21 +41,10 @@ class WritingRequirementsManager:
             else:
                 combined_content = str(new_content) # 이전 내용이 None이면 새 값만 사용
             try:
+                field_prompt = get_update_field_prompt(field_name, combined_content)
                 response = client.responses.create(
                     model=model.advanced, 
-                    input=[
-                        {"role": "user", "content": f"""
-                         다음 원본 텍스트를 /원본:{field_name}/ 필드에 목적에 맞게 글쓰기에 사용할 수 있게 요약하라 
-                         (요약시 원본속에 답긴 모든 정보는 살려라  중복은 다듬어라.);
-                         다음 지침을 반드시 따르시오 
-                         1.당신은 사용자의 글목적을 정리합니다.
-                         이후 당신이 적은내용을 글쓰기에 활용됩니다. 즉 당신은 대화에서 나온내용을 계속 정리하돼 요약시 이전 정보를 지워서는 안됩니다.
-                         2.
-                         맨처음부분에 어떤 내용이 있는지 현재 문맥을 다음 당신이 요약할때 도움이되는 내용을 팁 1로 알리세요 
-                         사용자는~를 바라고 있어서 ~를 도와줘야됨. 이런식입니다. . 팁2에는 사용자의 요구사항을 정리해나가세요.
-                           이전요구사항들도 계속 누적되어야합니다.  인공지능이 문맥을 요약할때 팁을 '팁:1(팁1내용);팁2(티12내용), ' 2개 적어라.
-                             이후 초반부터 마지막 내용을 순차적으로 지침과 팁에 맞게 요약하라;, :\n{combined_content}"""}
-                    ],
+                    input=[field_prompt],
                 )
                 summarized_content = response.output_text # 요약된 내용 추출
                 self.writing_requirements[field_name] = summarized_content
