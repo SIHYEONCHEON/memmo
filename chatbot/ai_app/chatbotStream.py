@@ -45,14 +45,14 @@ class ChatbotStream:
        # self.memoryManager = MemoryManager()
         self.writingRequirementsManager=WritingRequirementsManager()
         self.field_instructions = {
-            "purpose_background": "글을 쓰는 이유와 배경을 명확히 정리하세요.",
-            "context_topic": "글의 주제나 상황을 중심으로 정리하세요.",
-            "audience_scope": "대상 독자의 특성과 목적에 맞게 정리하세요.",
-            "format_structure": "글의 구조나 형식을 논리적 순서로 정리하세요.",
-            "logic_evidence": "논리 전개나 근거, 자료가 잘 드러나도록 정리하세요.",
-            "expression_method": "문체, 어조, 시점 등을 일관되게 정리하세요.",
-            "additional_constraints": "키워드, 금지어, 조건 등의 제약사항을 명확히 정리하세요.",
-            "output_expectations": "결과물 형태나 완성 기준을 구체적으로 정리하세요."
+            "purpose_background": "당신의 역할은 글을 쓰는 이유와 배경을 명확히 정리하는 역할입니다. 사용자의 질문에 자연스럽게 답하면서 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 대답하세요.사용자의 오타에는 언급하지말고 답하세요",
+            "context_topic": "글의 주제나 상황을 중심으로 정리하는 역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
+            "audience_scope": "대상 독자의 특성과 목적에 맞게 정리하는 역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
+            "format_structure": "글의 구조나 형식을 논리적 순서로 정리하는 역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
+            "logic_evidence": "논리 전개나 근거, 자료가 잘 드러나도록 정리하역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
+            "expression_method": "문체, 어조, 시점 등을 일관되게 정리하역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
+            "additional_constraints": "키워드, 금지어, 조건 등의 제약사항을 명확히 정리하역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
+            "output_expectations": "결과물 형태나 완성 기준을 구체적으로 정리하역할입니다.사용자의 질문에 사회성높은 셜록답게 사용자에게 당신이 필요한 정보를 물어보거나 자연스럽게 대화하세요 사용자의 오타에는 언급하지말고 답하세요",
         }
        
     def add_user_message_in_context(self, message: str):
@@ -214,6 +214,7 @@ class ChatbotStream:
 #api요소에만 해당하는부분만 반환해 문맥구성성
     def to_openai_context(self, context):
         return [{"role":v["role"], "content":v["content"]} for v in context]
+    
     def get_current_context(self):
         if self.current_field == "main":
             return self.context
@@ -302,6 +303,7 @@ class ChatbotStream:
             self.sub_contexts[self.current_field] = ConversationContextFactory.create_context(self.current_field)
             '''만약 사용자가 방을 명시적으로 enter_sub_conversation() 하지 않고도, 바로 메시지를 보내는 경우:
             add_user_message_in_context()나 get_current_context() 호출 시 sub_contexts[field_name]이 없을 수 있음. 이때 자동으로 만들어주는 비상용 안전 로직'''
+        
         return self.sub_contexts[self.current_field]["messages"]
 
 
