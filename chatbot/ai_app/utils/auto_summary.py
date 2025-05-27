@@ -27,12 +27,11 @@ class AutoSummary:
         self.embed_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def classify_query_type(self, user_query: str) -> str:
-        # ✅ 기존 2분류에서 3분류로 확장됨 (memory_search / internet_search / context)
+        
         prompt = f'''
         다음 사용자 입력의 유형을 판단하시오. 아래 중 하나로만 답하시오:
 
         - "memory_search": 과거 대화 내용(예: 이전에 말한 논문 주제, 내가 전에 얘기한 목적 등)을 회상하려는 질문
-        - "internet_search": 실시간 정보나 외부 세계의 사실(예: 오늘 날씨, 서울대 위치, 환율 등)을 묻는 질문
         - "context": 그 외 일반적인 문맥 기반 대화
 
         질문: "{user_query}"
@@ -141,48 +140,40 @@ class AutoSummary:
             print(f"[AutoSummary] search_memory 오류: {e}")
             return []
 
-    def answer_with_memory_check(self, user_query: str, context: list[dict]) -> list[str]:
+    def answer_with_memory_check(self, user_query: str, context: list[dict]):
         query_type = self.classify_query_type(user_query)
         print(f"[AutoSummary] 질의 분류 결과: {query_type}")
-        
 
-        # ✅ 새로 추가된 분기: 인터넷 검색 요청이면 fallback 자체를 생략
-        if query_type == "internet_search":
-            print("[AutoSummary] ⛔ 인터넷 검색 질문으로 분류됨 → memory 응답 중단")
-            return None
-
-        # ✅ memory_search로 분류되더라도 최근 3개의 대화문(context)에 질문과 동일한 내용이 있으면
-        # → 불필요한 벡터 fallback을 생략하고 context 응답을 그대로 사용함.
-        # → 목적: 방금 한 질문에 대해 "기억 못함" 회피가 발생하지 않도록 보완.
+        # 최근 3개 대화에 동일 문장이 있으면 우선 기본 응답만 시도
         if query_type == "memory_search" and len(context) > 0:
             recent_texts = [m["content"] for m in context[-3:] if "content" in m]
             recent_combined = " ".join(recent_texts)
 
-            # GPT 응답 확인
             if user_query.strip() in recent_combined:
                 messages = context + [{"role": "user", "content": user_query}]
-                base_response = client.chat.completions.create(
+                base_resp = client.responses.create(
                     model=model.advanced,
                     messages=messages
-                ).choices[0].message.content.strip()
+                )
+                base_response = base_resp.output_text.strip()
+        else:
+            return "현재 문맥안의 대화내용입니다."
 
-                # 회피성 응답이면 fallback 실행
-                if any(kw in base_response for kw in ["모름", "기억", "접근할 수 없", "정보 없음"]):
-                    print("[AutoSummary] ⚠ 동일 문장 있지만 회피 응답 → fallback 계속 진행")
-                else:
-                    print("[AutoSummary] ✅ 동일 문장 있고 정상 응답 → fallback 생략")
-                    return None
-        
+        # 기본 GPT 응답 생성
         messages = context + [{"role": "user", "content": user_query}]
         try:
-            base_response = client.chat.completions.create(
+            response = client.responses.create(
                 model=model.advanced,
-                messages=messages
-            ).choices[0].message.content.strip()
+                input=messages
+            )
+
+            base_response = response.output_text
+            print(f"[AutoSummary] 기본 응답 생성 완료: {base_response}")
         except Exception as e:
             print(f"[AutoSummary] GPT 기본 응답 실패: {e}")
-            return ["죄송합니다. 응답을 생성하지 못했습니다."]
+            return "죄송합니다. 응답을 생성하지 못했습니다."
 
+        # fallback 필요 여부 판단
         fallback_check_prompt = f'''
         아래 사용자 질문과 GPT 응답을 보고,
         GPT가 질문에 명확히 답하지 못했거나,
@@ -193,59 +184,57 @@ class AutoSummary:
         [응답]: {base_response}
         '''
         try:
-            fallback_classification = client.chat.completions.create(
+            resp_cls = client.responses.create(
                 model=model.advanced,
                 messages=[{"role": "user", "content": fallback_check_prompt}]
-            ).choices[0].message.content.strip().upper()
+            )
+            fallback_classification = resp_cls.output_text.strip().upper()
         except Exception as e:
             print(f"[AutoSummary] fallback 판단 오류: {e}")
             fallback_classification = "OK"
 
         memory_summaries = self.search_memory(user_query)
 
-        # ✅ keyword_triggered 제거됨 (오탐 방지 목적)
         should_fallback = (
-            query_type != "internet_search" and (
-            query_type == "memory_search"
-            or fallback_classification == "FALLBACK"
+            query_type !=  (
+                query_type == "memory_search"
+                or fallback_classification == "FALLBACK"
             )
         )
-        
-        print(f"[AutoSummary] 🧠 fallback 판단 근거 → 질의유형: '{query_type}', 응답판단: '{fallback_classification}'") #05-22 fallback이 어떤 조건에 의해 트리거되었는가? 추가 
+        print(f"[AutoSummary] 🧠 fallback 판단 근거 → 질의유형: '{query_type}', 응답판단: '{fallback_classification}'")
 
+        # memory 기반 fallback 응답
         if should_fallback:
             print("[AutoSummary] ✅ fallback 조건 충족 → memory 응답 수행")
-            memory_summaries = self.search_memory(user_query)
-
             if not memory_summaries:
                 print("[AutoSummary] ⚠ memory summary 없음 → context 기반으로 응답 생성")
-                return [base_response]
-            
-            print(f"[AutoSummary] ✅ memory summary {len(memory_summaries)}개 사용 → memory 기반 응답 생성")
+                return base_response
 
+            print(f"[AutoSummary] ✅ memory summary {len(memory_summaries)}개 사용 → memory 기반 응답 생성")
             memory_context = [
                 {
                     "role": "system",
                     "content": (
-                        "다음 질문은 아래 요약 내용을 반드시 참고하여 응답하시오. \n\n"
+                        "다음 질문은 아래 요약 내용을 반드시 참고하여 응답하시오.\n\n"
                         f"이전 대화 요약: {s}"
                     )
                 }
                 for s in memory_summaries
             ]
-
             try:
-                fallback_response = client.chat.completions.create(
+                resp_fb = client.responses.create(
                     model=model.advanced,
                     messages=memory_context + context + [{"role": "user", "content": user_query}]
-                ).choices[0].message.content.strip()
-                return [fallback_response]
+                )
+                fallback_response = resp_fb.output_text.strip()
+                return fallback_response
             except Exception as e:
                 print(f"[AutoSummary] GPT fallback 응답 실패: {e}")
-                return ["죄송합니다. 회상 응답도 실패했습니다."]
+                return "죄송합니다. 회상 응답도 실패했습니다."
 
+        # fallback 조건 미충족 시 기본 응답 사용
         print("[AutoSummary] ⚠ fallback 조건 미충족 → context 응답 사용")
-        return [base_response]
+        return base_response
 
 from fastapi import APIRouter
 from pydantic import BaseModel
