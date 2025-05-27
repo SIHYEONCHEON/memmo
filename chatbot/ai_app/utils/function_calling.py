@@ -314,7 +314,7 @@ tools = [
 입력: “청중은 대학원생입니다.”
 → field_name: “audience_scope”
    new_content: “대학원생”
-4.new_content는 현재 재화맥락 전체를 고려해라  (예) 만약 이전에 사용자가 검색을 한 문맥이 있는데 사용자가 근거를 업데이트해 하면 이전에 검색한 내용을 기반으로 newcontent를 만들어라- 단 최근 3개 대화만을 고려. 
+4.new_content는 현재 대화맥락 전체를 고려해라  (예) 만약 이전에 사용자가 검색을 한 문맥이 있는데 사용자가 근거를 업데이트해 하면 이전에 검색한 내용을 기반으로 newcontent를 만들어라- 단 최근 3개 대화만을 고려. 
 """,
   "strict": True,
   "parameters": {
@@ -386,18 +386,20 @@ tools = [
 
 
 class FunctionCalling:
-    def __init__(self, model):
-        self.writingRequirementsManager=WritingRequirementsManager()
-        self.available_functions = {
+    def __init__(self, model, available_functions=None):
+        self.model = model
+        default_functions = {
             "get_celsius_temperature": get_celsius_temperature,
             "get_currency": get_currency,
             "search_internet": search_internet,
-            "update_field": self.writingRequirementsManager.update_field,
-            "get_writing_requirement_field_content": self.writingRequirementsManager.get_field_content,
             "search_internet_for_report": search_internet_for_report,
             "write_report": write_report
         }
-        self.model = model
+
+        if available_functions:
+            default_functions.update(available_functions)
+
+        self.available_functions = default_functions
        
     def analyze(self, user_message, tools):
         if not user_message or user_message.strip() == "":

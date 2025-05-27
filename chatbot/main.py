@@ -11,6 +11,7 @@ from ai_app.assist.characters import instruction,system_role
 from ai_app.utils.function_calling import FunctionCalling, tools # 단일 함수 호출
 from contextlib import asynccontextmanager
 from ai_app.utils.auto_summary import router as memory_router # 추가
+from ai_app.utils.auto_summary import get_auto_summary
 '''
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,9 +56,17 @@ Flask는 기본적으로 Pydantic을 지원하지 않기 때문에, request.json
 class UserRequest(BaseModel):
     message: str
 
-func_calling = FunctionCalling(model=model.basic)
+def update_field_bound(field_name: str, new_content: str):
+    return chatbot.writingRequirementsManager.update_field(field_name, new_content)
 
-
+# tools 목록에서 해당 이름으로 매칭되도록 래핑한 함수 등록
+func_calling = FunctionCalling(
+    model=model.basic,
+    available_functions={
+        "update_field": update_field_bound,
+        # 필요시 다른 함수도 여기에 추가
+    }
+)
 @app.post("/stream-chat")
 async def stream_chat(user_input: UserRequest):
     """
@@ -78,19 +87,11 @@ async def stream_chat(user_input: UserRequest):
     current_context = chatbot.get_current_context()
     temp_context = chatbot.to_openai_context(current_context).copy()
     # ✅ [② AutoSummary fallback 판단 및 실행] 
-    from ai_app.utils.auto_summary import get_auto_summary
     auto_summary = get_auto_summary()
-
-    memory_response = auto_summary.answer_with_memory_check(user_input.message, temp_context)
-    if memory_response is None:
-         print("[main.py] GPT가 인터넷 검색 질문으로 판단 → function_call 흐름으로 계속 진행")
-    # 여기선 아무것도 안 하고 아래 function_call 흐름으로 계속 감
-    else:
-        # memory_search 또는 fallback 조건으로 회상 응답이 생성됨
-        chatbot.add_response_stream(memory_response[0]) # , role="assistant" 삭제함 05-21
-        return {"response": memory_response[0]}  # ❗ 이 시점에서 return 하므로 아래로 안 내려감
     
-    # 3) 복제된 문맥에 지침 추가
+    # 메모리 체크 결과를 받지만, 원본 사용자 메시지를 유지합니다
+    memory_data = auto_summary.answer_with_memory_check(user_input.message, temp_context)
+    
     if chatbot.current_field != "main":
         instruction = chatbot.field_instructions.get(chatbot.current_field, chatbot.instruction)
         # 마지막 사용자 메시지에 지침 추가
@@ -98,9 +99,18 @@ async def stream_chat(user_input: UserRequest):
             if msg["role"] == "user":
                 msg["content"] = f"{msg['content']}\ninstruction: {instruction}"
                 break
-
-    analyzed= func_calling.analyze(user_input.message, tools)
+    print("함수호출 시작작")
+    # 메모리에서 관련 정보가 발견되면, 컨텍스트에 추가 정보로 포함시킵니다
+    if memory_data and memory_data != user_input.message:
+        # 기존 컨텍스트를 유지하면서 메모리 정보를 추가
+        temp_context.append({
+            "role": "system", 
+            "content": f"다음은 사용자 질문과 관련된 기존 대화 기록입니다: {memory_data}"
+        })
     
+    # 함수 호출 분석은 항상 원본 컨텍스트(사용자 메시지 포함)로 수행
+    print("함수호출 시작")
+    analyzed = func_calling.analyze(user_input.message, tools)  # memory_response 대신 원본 메시지 사용
 
     for tool_call in analyzed:  # analyzed는 list of function_call dicts
             if tool_call.type != "function_call":
@@ -329,7 +339,10 @@ async def get_field_content(field_name: str):
     if field_name not in valid_fields:
         raise HTTPException(status_code=400, detail="유효하지 않은 필드입니다.")
     
+    print(f"DEBUG: WritingRequirementsManager 인스턴스 ID: {chatbot.writingRequirementsManager}")
+    print(f"DEBUG: 현재 모든 필드: {chatbot.writingRequirementsManager.writing_requirements}")
     content = chatbot.writingRequirementsManager.get_field_content(field_name)
+    print(f"DEBUG: 요청된 필드 '{field_name}' 내용: {content}")
     return {
         "success": True,
         "field_name": field_name,
@@ -339,6 +352,7 @@ async def get_field_content(field_name: str):
 class UpdateFieldRequest(BaseModel):
     field_name: str
     content: str
+    
 @app.post("/update-field")
 async def update_field(request: UpdateFieldRequest):
     """
@@ -359,7 +373,7 @@ async def update_field(request: UpdateFieldRequest):
     
     # 필드 업데이트
     update_message = chatbot.writingRequirementsManager.update_field(request.field_name, request.content)
-    
+    print(f"DEBUG: 필드 '{request.field_name}' 업데이트 메시지: {update_message}")
     # Clarification Question 생성
     try:
         response = client.responses.create(
@@ -383,3 +397,46 @@ async def update_field(request: UpdateFieldRequest):
         "clarification_question": question,
         "message": update_message
     }
+
+@app.post("/generate-document")
+async def generate_document():
+    """
+    WritingRequirementsManager에 저장된 현재 요구사항을 기반으로
+    LangGraph 파이프라인을 실행하여 최종 결과물을 생성합니다.
+    """
+    try:
+        from data.data_models import AgentState, WritingRequirements
+        from ai_app.Result_generation.nodes import run_pipeline
+        # --- 여기가 바로 우리가 논의한 '데이터 연결' 로직입니다 ---
+
+        # 1. 관리자로부터 실시간 요구사항 데이터를 딕셔너리로 가져오기
+        requirements_dict = chatbot.writingRequirementsManager.get_requirements()
+        print(f"DEBUG: Manager에서 가져온 요구사항: {requirements_dict}")
+
+        # 2. 딕셔너리를 WritingRequirements 모델 객체로 변환하기
+        requirements_model = WritingRequirements(**requirements_dict)
+
+        # 3. 모델 객체를 사용하여 AgentState의 초기 상태를 생성하기
+        initial_state = AgentState(requirements=requirements_model)
+
+        # 4. 실제 데이터가 담긴 상태로 LangGraph 파이프라인 실행하기
+        print("INFO: LangGraph 파이프라인 실행을 시작합니다.")
+        final_state = run_pipeline(initial_state)
+        print("INFO: LangGraph 파이프라인 실행이 완료되었습니다.")
+
+        # 5. 최종 결과물을 추출하여 클라이언트에게 반환하기
+        final_output = final_state.get("final_iteration_output", {})
+        if not final_output:
+            error_msg = final_state.get("error_message", "알 수 없는 오류가 발생했습니다.")
+            raise HTTPException(status_code=500, detail=f"결과 생성 실패: {error_msg}")
+
+        # 딕셔너리에서 'final_text' 키의 값을 직접 추출합니다.
+        final_text = final_output.get("final_text", "오류: 최종 결과물을 찾을 수 없습니다.")
+
+        # 클라이언트가 가장 필요로 하는 'final_text'를 최상위 레벨로 반환합니다.
+        return {"success": True, "final_text": final_text}
+
+    except Exception as e:
+        # 기타 예외 처리
+        print(f"ERROR: /generate-document 엔드포인트에서 예외 발생: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

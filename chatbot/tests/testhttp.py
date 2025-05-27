@@ -306,6 +306,46 @@ def test_stream_chat_api_failure(setup_test_data):
         assert "Stream Error: API 오류" in response.text
     logger.info("테스트 완료: GPT API 실패 처리")
 
+# 통합 테스트: POST /generate-document
+def test_generate_document(setup_test_data, mock_api):
+    logger.info("테스트 시작: POST /generate-document")
+    chatbot = setup_test_data
+    
+    # 필요한 모든 필드에 테스트 데이터 설정
+    fields_data = {
+        "purpose_background": "취업을 위한 자기소개서",
+        "context_topic": "삼성전자 개발자 지원",
+        "audience_scope": "심사위원 및 개발자 현업 팀장",
+        "format_structure": "서론-본론-결론 구조의 자기소개서",
+        "logic_evidence": "기술 스택 및 프로젝트 경험",
+        "expression_method": "전문적이고 명확한 표현",
+        "additional_constraints": "2000자 이내",
+        "output_expectations": "개발 역량과 삼성전자 문화 적합성 강조"
+    }
+    
+    # 모든 필드 업데이트
+    for field, content in fields_data.items():
+        chatbot.writingRequirementsManager.update_field(field, content)
+    
+    # generate-document 요청 테스트
+    with patch("data.data_models.AgentState") as mock_state:
+        with patch("ai_app.Result_generation.nodes.run_pipeline") as mock_pipeline:
+            # 파이프라인 반환값 모의 설정
+            mock_pipeline.return_value = {
+                "final_iteration_output": {
+                    "final_text": "테스트 생성 문서 내용"
+                }
+            }
+            
+            response = test_client.post("/generate-document")
+            assert response.status_code == 200
+            json_response = response.json()
+            assert json_response["success"] == True
+            assert "final_text" in json_response
+            assert json_response["final_text"] == "테스트 생성 문서 내용"
+    
+    logger.info("테스트 완료: POST /generate-document")
+
 if __name__ == "__main__":
     import requests  # HTTP 요청용
     
@@ -363,8 +403,8 @@ if __name__ == "__main__":
                         print(f"❌ 상태 조회 실패: {response.json()['detail']}")
                 except Exception as e:
                     print(f"❌ 요청 중 오류 발생: {e}")
-
-            elif user_input.startswith("필드조회 "):
+#
+            elif user_input=="필드조회":
                 field = user_input.replace("필드조회", "").strip()
                 response = requests.get(f"{BASE_URL}/field-content/{field}")
                 if response.status_code == 200:
@@ -415,6 +455,21 @@ if __name__ == "__main__":
                     print(f"  - 메시지: {json_response['message']}")
                 else:
                     print(f"❌ 필드 수정 실패 ({field}): {response.json()['detail']}")
+
+            elif user_input == "문서생성":
+                try:
+                    print("📝 문서 생성 중...")
+                    response = requests.post(f"{BASE_URL}/generate-document")
+                    if response.status_code == 200:
+                        json_response = response.json()
+                        print(f"✅ 문서 생성 성공:")
+                        print("="*50)
+                        print(json_response["final_text"])
+                        print("="*50)
+                    else:
+                        print(f"❌ 문서 생성 실패: {response.json()['detail']}")
+                except Exception as e:
+                    print(f"❌ 문서 생성 요청 중 오류 발생: {e}")
 
             else:
                 response = requests.post(f"{BASE_URL}/stream-chat", json={"message": user_input})
