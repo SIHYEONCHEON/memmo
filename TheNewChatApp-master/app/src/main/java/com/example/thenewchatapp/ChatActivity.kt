@@ -287,7 +287,7 @@ class ChatActivity : AppCompatActivity() {
         }
 
         // RecyclerView 설정
-        chatRecyclerView.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
+        chatRecyclerView.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = false }
         chatAdapter = ChatAdapter(chatMessages) { pos, text ->
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra("originalText", text)
