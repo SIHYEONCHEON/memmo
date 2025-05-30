@@ -31,6 +31,7 @@ import org.json.JSONObject
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatDelegate
 import com.example.thenewchatapp.MainActivity.Companion.prefs
+import java.util.concurrent.TimeUnit
 
 class FieldChatActivity : AppCompatActivity() {
 
@@ -131,8 +132,13 @@ class FieldChatActivity : AppCompatActivity() {
                     tvFieldTitle.text = selectedLabel
                     val key = fieldKeys.first { viewModel.getTitle(it) == selectedLabel }
 
+
+
                     // ③ 현재 입력 내용 저장
                     viewModel.setContent(key, messageEditText.text.toString())
+
+                    // 🔥 서버에게 필드방 입장 알림
+                    enterFieldRoom(key)
 
                     // ④ 선택된 필드로 재진입
                     val frag = FieldDetailFragment.newInstance(key, viewModel.getContent(key))
@@ -206,7 +212,7 @@ class FieldChatActivity : AppCompatActivity() {
             // ▲ Gravity.TOP 지정: 메뉴를 버튼 위로 띄움
             val popup = PopupMenu(this, anchorView, Gravity.TOP)
             popup.apply {
-                menu.add("요구사항").setOnMenuItemClickListener {
+                menu.add("필드 화면").setOnMenuItemClickListener {
                     intent = Intent(this@FieldChatActivity, FieldChatActivity::class.java)
                     startActivity(Intent(this@FieldChatActivity, FieldActivity::class.java))
                     true
@@ -223,7 +229,7 @@ class FieldChatActivity : AppCompatActivity() {
         val initialKey = if (keyFromIntent != null && fieldKeys.contains(keyFromIntent))
             keyFromIntent
         else
-        fieldKeys.first()
+            fieldKeys.first()
         // ② ViewModel 에서 “보여줄 제목”(label)을 가져와 표시
         tvFieldTitle.text = viewModel.getTitle(initialKey)
 
@@ -247,10 +253,35 @@ class FieldChatActivity : AppCompatActivity() {
             updateEntryList()
         }
 
+        // 2) 루트 레이아웃 터치 시 포커스 해제
+        mainView.setOnTouchListener { v: View, event: MotionEvent ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                v.performClick()              // ← 클릭 처리(접근성용)
+            }
+            messageEditText.clearFocus()
+            false
+        }
 
+        // **1. 포커스 해제 시 숨김 (이미 구현)**
+        messageEditText.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                recyclerCategory.visibility = View.VISIBLE
+                recyclerEntry.visibility = View.VISIBLE
+            } else {
+                recyclerCategory.visibility = View.GONE
+                recyclerEntry.visibility = View.GONE
+            }
+        }
 
-
-
+        fun onBackPressed() {
+            if (messageEditText.hasFocus()) {
+                // EditText에 포커스 남아 있으면 해제만
+                messageEditText.clearFocus()
+            } else {
+                // 그렇지 않으면 기본 뒤로가기
+                super.onBackPressed()
+            }
+        }
 
         // 결과 생성 버튼 클릭
         createResultButton.setOnClickListener {
@@ -287,10 +318,7 @@ class FieldChatActivity : AppCompatActivity() {
         }
 
         // RecyclerView 설정
-        chatRecyclerView.layoutManager = LinearLayoutManager(this).apply {
-            stackFromEnd = false // 아이템을 리스트의 시작(상단)부터 채우도록 변경
-            // reverseLayout = false // 기본값이 false이므로 명시적으로 적지 않아도 됩니다.
-        }
+        chatRecyclerView.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         chatAdapter = ChatAdapter(chatMessages) { pos, text ->
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra("originalText", text)
@@ -348,58 +376,8 @@ class FieldChatActivity : AppCompatActivity() {
             }
         }
     }
-    // FieldChatActivity.kt 클래스 내부에 이 메서드를 추가합니다.
-    // FieldChatActivity.kt 클래스 내부, onCreate() 바깥에 위치해야 합니다.
-    @Suppress("DEPRECATION") // 또는 @Deprecated(...)
-    override fun onBackPressed() {
-        if (messageEditText.hasFocus()) {
-            // EditText에 포커스 남아 있으면 해제만
-            messageEditText.clearFocus() // 이것이 setOnFocusChangeListener를 호출
-        } else {
-            // 프래그먼트가 있다면 프래그먼트를 pop하고, 없다면 액티비티 종료
-            super.onBackPressed()
-        }
-    }
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.action == MotionEvent.ACTION_DOWN) {
-            val focusedView = currentFocus
-            // 현재 messageEditText에 포커스가 있고, 이지커맨드가 보이는 상황인지 확인
-            // FieldChatActivity는 messageEditText 포커스 == 이지커맨드 표시 로직을 따름
-            if (focusedView == messageEditText && recyclerCategory.visibility == View.VISIBLE) {
-                val x = ev.rawX.toInt()
-                val y = ev.rawY.toInt()
 
-                // messageEditText의 화면상 영역
-                val editTextRect = android.graphics.Rect()
-                messageEditText.getGlobalVisibleRect(editTextRect)
-
-                // 이지커맨드 카테고리 영역 (보일 때만 체크)
-                val recyclerCategoryRect = android.graphics.Rect()
-                if (recyclerCategory.visibility == View.VISIBLE) {
-                    recyclerCategory.getGlobalVisibleRect(recyclerCategoryRect)
-                }
-
-                // 이지커맨드 엔트리 영역 (보일 때만 체크)
-                val recyclerEntryRect = android.graphics.Rect()
-                if (recyclerEntry.visibility == View.VISIBLE) {
-                    recyclerEntry.getGlobalVisibleRect(recyclerEntryRect)
-                }
-
-                // 터치한 위치가 messageEditText 내부도 아니고,
-                // 보이는 이지커맨드 카테고리 내부도 아니고,
-                // 보이는 이지커맨드 엔트리 내부도 아니라면 포커스를 해제
-                if (!editTextRect.contains(x, y) &&
-                    !(recyclerCategory.visibility == View.VISIBLE && recyclerCategoryRect.contains(x, y)) &&
-                    !(recyclerEntry.visibility == View.VISIBLE && recyclerEntryRect.contains(x, y))) {
-
-                    // Log.d("DispatchTouch", "External touch, clearing focus from messageEditText.")
-                    messageEditText.clearFocus() // 이 호출로 인해 setOnFocusChangeListener가 실행되어
-                    // recyclerCategory와 recyclerEntry가 GONE으로 설정됩니다.
-                }
-            }
-        }
-        return super.dispatchTouchEvent(ev)
-    }    private fun externalReply(sentMsg: String): String = "Reply to: $sentMsg"
+    private fun externalReply(sentMsg: String): String = "Reply to: $sentMsg"
 
     class ChatAdapter(
         private val messages: List<ChatMessage>,
@@ -508,7 +486,11 @@ class FieldChatActivity : AppCompatActivity() {
 
         fun sendChatRequest(userMessage: String, onChunk: (String) -> Unit) {
             CoroutineScope(Dispatchers.IO).launch {
-                val client = OkHttpClient()
+                val client = OkHttpClient.Builder() //소켓타임아웃방지코드
+                    .connectTimeout(30, TimeUnit.SECONDS)  // 연결 타임아웃 30초
+                    .readTimeout(0, TimeUnit.SECONDS)      // 스트리밍 응답 무제한 대기 (중요!)
+                    .writeTimeout(30, TimeUnit.SECONDS)    // 쓰기 타임아웃 30초
+                    .build()
                 val body = JSONObject().put("message", userMessage).toString()
                     .toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
                 val req = Request.Builder()
@@ -571,7 +553,33 @@ class FieldChatActivity : AppCompatActivity() {
             .show(supportFragmentManager, "CommandDetail")
     }
 
+
+    // ✅ 이 위치에 함수 추가!
+    private fun enterFieldRoom(fieldKey: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val client = OkHttpClient()
+            val url = "http://http://54.252.159.52:5000/enter-sub-conversation/$fieldKey"
+            val req = Request.Builder().url(url)
+                .post("".toRequestBody("application/json".toMediaTypeOrNull()))
+                .build()
+
+            try {
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) {
+                        println("서버 입장 실패: ${resp.code}")
+                    } else {
+                        println("서버 입장 성공: ${resp.body?.string()}")
+                    }
+                }
+            } catch (e: Exception) {
+                println("서버 입장 요청 에러: ${e.message}")
+            }
+        }
+    }
+
     companion object {
         fun newInstance(): FieldChatActivity = FieldChatActivity()
     }
 }
+
+
