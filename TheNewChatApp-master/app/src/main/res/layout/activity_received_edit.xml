@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layout_received_edit"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@android:color/white">
+
+    <!-- 상단 Toolbar: 뒤로가기 + 저장 버튼 텍스트 직접 삽입 -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar_received_edit"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
+
+        <!-- "저장" 텍스트 버튼 직접 추가 -->
+        <TextView
+            android:id="@+id/btn_save_direct"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:paddingHorizontal="16dp"
+            android:text="저장"
+            android:textColor="@android:color/black"
+            android:textSize="16sp"
+            android:gravity="center" />
+    </androidx.appcompat.widget.Toolbar>
+
+    <!-- 말풍선 없이 메모장 스타일 EditText -->
+    <EditText
+        android:id="@+id/editTextReceived"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:hint="내용을 수정하세요"
+        android:gravity="top"
+        android:background="@null"
+        android:inputType="textMultiLine"
+        android:padding="16dp"
+        android:textSize="16sp"
+        android:textColor="@android:color/black"
+        android:scrollbars="vertical" />
+</LinearLayout>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/loading_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:text="답변 생성 중 입니다..."
+        android:textColor="@android:color/darker_gray"
+        android:textSize="16sp"
+        android:padding="10dp"
+        android:background="@drawable/receive_message_bubble_background"
+        android:layout_margin="4dp"
+        android:alpha="0.6" />
+</RelativeLayout>

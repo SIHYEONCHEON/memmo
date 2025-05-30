@@ -1,0 +1,12 @@
+
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_edit_title"
+        android:title="제목 수정"
+        android:icon="@android:drawable/ic_menu_edit" />
+    <item
+        android:id="@+id/menu_delete"
+        android:title="삭제"
+        android:icon="@android:drawable/ic_menu_delete"/>
+
+</menu>

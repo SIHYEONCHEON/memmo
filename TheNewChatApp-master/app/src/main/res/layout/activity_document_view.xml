@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/editTextDocumentContent"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:hint="파일 내용을 입력하세요"
+        android:gravity="start|top"
+        android:inputType="textMultiLine"
+        android:textSize="16sp"
+        android:background="@null"/>
+
+    <Button
+        android:id="@+id/buttonSaveDocument"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="저장하기"
+        android:layout_marginTop="16dp"/>
+</LinearLayout>
