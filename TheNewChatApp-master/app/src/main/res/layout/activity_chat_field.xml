@@ -42,8 +42,8 @@
     <!-- ① 상단 우측: 필드 드롭다운 화살표만 -->
     <ImageButton
         android:id="@+id/btnFieldDropdown"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
         android:layout_marginTop="8dp"

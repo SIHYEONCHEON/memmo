@@ -17,13 +17,15 @@
     <!-- ① 상단 우측: 필드 드롭다운 화살표만 -->
     <ImageButton
         android:id="@+id/btnFieldDropdown"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
-        android:src="@drawable/ic_arrow_drop_down"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
         android:background="@null"
         android:contentDescription="필드 선택"
+        android:src="@drawable/ic_arrow_drop_down"
         app:tint="@color/btn_icon" />
 
     <!-- ② 필드 리스트(RecylerView) -->
@@ -43,7 +45,7 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentEnd="true"
         android:orientation="vertical"
-        android:layout_margin="12dp">
+        android:layout_margin="16dp">
 
         <ImageButton
             android:id="@+id/btnPlus"

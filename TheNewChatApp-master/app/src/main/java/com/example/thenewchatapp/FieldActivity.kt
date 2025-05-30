@@ -120,7 +120,7 @@ class FieldActivity : AppCompatActivity() {
                         startActivity(Intent(this@FieldActivity, FieldChatActivity::class.java))
                         true
                     }
-                    menu.add("일반 글 화면").setOnMenuItemClickListener {
+                    menu.add("글쓰기").setOnMenuItemClickListener {
                         startActivity(Intent(this@FieldActivity, MainActivity::class.java))
                         true
                     }
