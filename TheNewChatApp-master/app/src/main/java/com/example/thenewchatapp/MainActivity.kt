@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this@MainActivity, ChatActivity::class.java))
                     true
                 }
-                menu.add("필드 화면").setOnMenuItemClickListener {
+                menu.add("요구사항").setOnMenuItemClickListener {
                     startActivity(Intent(this@MainActivity, FieldActivity::class.java))
                     true
                 }

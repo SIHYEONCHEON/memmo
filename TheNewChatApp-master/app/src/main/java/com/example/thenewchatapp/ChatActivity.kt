@@ -182,11 +182,7 @@ class ChatActivity : AppCompatActivity() {
         // ➕ 버튼 팝업 메뉴
         btnPlus.setOnClickListener { anchorView ->
             PopupMenu(this, anchorView).apply {
-                menu.add("일반 글 화면").setOnMenuItemClickListener {
-                    startActivity(Intent(this@ChatActivity, MainActivity::class.java))
-                    true
-                }
-                menu.add("필드 화면").setOnMenuItemClickListener {
+                menu.add("요구사항").setOnMenuItemClickListener {
                     startActivity(Intent(this@ChatActivity, FieldActivity::class.java))
                     true
                 }
@@ -203,8 +199,6 @@ class ChatActivity : AppCompatActivity() {
                 show()
             }
         }
-
-
 
         // 초기 엔트리 리스트 세팅
         updateEntryList()
@@ -248,9 +242,6 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
         }
-
-
-
 
         // 결과 생성 버튼 클릭
         createResultButton.setOnClickListener {

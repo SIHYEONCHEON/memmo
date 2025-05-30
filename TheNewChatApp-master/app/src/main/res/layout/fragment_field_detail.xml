@@ -11,7 +11,8 @@
         android:id="@+id/editTextTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="15dp"
+        android:padding="8dp"
         android:hint="제목을 입력하세요"
         android:background="@drawable/edit_text_background"
         android:textColor="@color/text_main"
@@ -41,8 +42,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:orientation="vertical"
-        android:padding="6dp">
+        android:orientation="vertical">
 
         <!-- + 버튼: 음성 버튼 바로 위에 16dp 간격 -->
         <ImageButton

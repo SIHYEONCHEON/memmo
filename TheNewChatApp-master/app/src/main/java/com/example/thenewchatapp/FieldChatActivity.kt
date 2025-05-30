@@ -206,7 +206,7 @@ class FieldChatActivity : AppCompatActivity() {
             // ▲ Gravity.TOP 지정: 메뉴를 버튼 위로 띄움
             val popup = PopupMenu(this, anchorView, Gravity.TOP)
             popup.apply {
-                menu.add("필드 화면").setOnMenuItemClickListener {
+                menu.add("요구사항").setOnMenuItemClickListener {
                     intent = Intent(this@FieldChatActivity, FieldChatActivity::class.java)
                     startActivity(Intent(this@FieldChatActivity, FieldActivity::class.java))
                     true

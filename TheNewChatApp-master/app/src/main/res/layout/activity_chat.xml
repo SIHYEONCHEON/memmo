@@ -1,5 +1,6 @@
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -86,7 +87,7 @@
                         android:background="@drawable/btn_background"
                         android:contentDescription="@string/plus_button"
                         android:src="@drawable/baseline_add_24"
-                        android:tint="@color/white" />
+                        app:tint="@color/white" />
 
                     <View
                         android:layout_width="0dp"
