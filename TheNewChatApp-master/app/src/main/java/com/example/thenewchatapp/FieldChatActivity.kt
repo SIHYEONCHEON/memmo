@@ -318,7 +318,9 @@ class FieldChatActivity : AppCompatActivity() {
         }
 
         // RecyclerView 설정
-        chatRecyclerView.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
+        chatRecyclerView.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = false // 아이템을 리스트의 시작(상단)부터 채우도록 변경
+            // reverseLayout = false // 기본값이 false이므로 명시적으로 적지 않아도 됩니다.
+        }
         chatAdapter = ChatAdapter(chatMessages) { pos, text ->
             val intent = Intent(this, MainActivity::class.java).apply {
                 putExtra("originalText", text)
@@ -377,7 +379,58 @@ class FieldChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun externalReply(sentMsg: String): String = "Reply to: $sentMsg"
+    // FieldChatActivity.kt 클래스 내부에 이 메서드를 추가합니다.
+    // FieldChatActivity.kt 클래스 내부, onCreate() 바깥에 위치해야 합니다.
+    @Suppress("DEPRECATION") // 또는 @Deprecated(...)
+    override fun onBackPressed() {
+        if (messageEditText.hasFocus()) {
+            // EditText에 포커스 남아 있으면 해제만
+            messageEditText.clearFocus() // 이것이 setOnFocusChangeListener를 호출
+        } else {
+            // 프래그먼트가 있다면 프래그먼트를 pop하고, 없다면 액티비티 종료
+            super.onBackPressed()
+        }
+    }
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val focusedView = currentFocus
+            // 현재 messageEditText에 포커스가 있고, 이지커맨드가 보이는 상황인지 확인
+            // FieldChatActivity는 messageEditText 포커스 == 이지커맨드 표시 로직을 따름
+            if (focusedView == messageEditText && recyclerCategory.visibility == View.VISIBLE) {
+                val x = ev.rawX.toInt()
+                val y = ev.rawY.toInt()
+
+                // messageEditText의 화면상 영역
+                val editTextRect = android.graphics.Rect()
+                messageEditText.getGlobalVisibleRect(editTextRect)
+
+                // 이지커맨드 카테고리 영역 (보일 때만 체크)
+                val recyclerCategoryRect = android.graphics.Rect()
+                if (recyclerCategory.visibility == View.VISIBLE) {
+                    recyclerCategory.getGlobalVisibleRect(recyclerCategoryRect)
+                }
+
+                // 이지커맨드 엔트리 영역 (보일 때만 체크)
+                val recyclerEntryRect = android.graphics.Rect()
+                if (recyclerEntry.visibility == View.VISIBLE) {
+                    recyclerEntry.getGlobalVisibleRect(recyclerEntryRect)
+                }
+
+                // 터치한 위치가 messageEditText 내부도 아니고,
+                // 보이는 이지커맨드 카테고리 내부도 아니고,
+                // 보이는 이지커맨드 엔트리 내부도 아니라면 포커스를 해제
+                if (!editTextRect.contains(x, y) &&
+                    !(recyclerCategory.visibility == View.VISIBLE && recyclerCategoryRect.contains(x, y)) &&
+                    !(recyclerEntry.visibility == View.VISIBLE && recyclerEntryRect.contains(x, y))) {
+
+                    // Log.d("DispatchTouch", "External touch, clearing focus from messageEditText.")
+                    messageEditText.clearFocus() // 이 호출로 인해 setOnFocusChangeListener가 실행되어
+                    // recyclerCategory와 recyclerEntry가 GONE으로 설정됩니다.
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }    private fun externalReply(sentMsg: String): String = "Reply to: $sentMsg"
 
     class ChatAdapter(
         private val messages: List<ChatMessage>,
