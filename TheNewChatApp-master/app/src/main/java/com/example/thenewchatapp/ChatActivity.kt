@@ -40,7 +40,7 @@ import android.view.ViewTreeObserver
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import java.util.concurrent.TimeUnit
-
+import java.io.IOException
 class ChatActivity : AppCompatActivity() {
 
     private lateinit var chatRecyclerView: RecyclerView
@@ -262,20 +262,100 @@ class ChatActivity : AppCompatActivity() {
             chatRecyclerView.smoothScrollToPosition(chatMessages.lastIndex)
 
             // 2) 실제 API 호출
-            CoroutineScope(Dispatchers.Main).launch {
-                // TODO: 실제 AI 호출 로직으로 교체
-                delay(1500)
-                // 로딩 제거
-                val idx = chatMessages.indexOf(loading)
-                if (idx >= 0) {
-                    chatMessages.removeAt(idx)
-                    chatAdapter.notifyItemRemoved(idx)
+            CoroutineScope(Dispatchers.IO).launch {
+                val client = OkHttpClient.Builder()
+                    .connectTimeout(0, TimeUnit.SECONDS)  // 0은 무한대기. 일반적으로 권장되지 않음. 적절한 값으로 설정 필요 (예: 30)
+                    .readTimeout(0, TimeUnit.SECONDS)    // 0은 무한대기. 장시간 작업 시 사용 가능하나, UX 고려 필요.
+                    .writeTimeout(0, TimeUnit.SECONDS)   // 0은 무한대기. 일반적으로 권장되지 않음. 적절한 값으로 설정 필요 (예: 30)
+                    .build()
+                val serverUrl = "http://54.252.159.52:5000/generate-document"
+
+                val requestBody: RequestBody = "".toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+
+                // Request 객체 생성 추가
+                val request = Request.Builder()
+                    .url(serverUrl)       // serverUrl 사용
+                    .post(requestBody)    // requestBody 사용
+                    .build()
+
+                var resultText: String? = null
+                var requestSuccessful = false
+                var errorMessageText: String? = null
+                try {
+                    // client.newCall에 request 변수 전달
+                    val response = client.newCall(request).execute()
+
+                    if (response.isSuccessful) {
+                        val responseBodyString = response.body?.string()
+                        if (responseBodyString != null) {
+                            try {
+                                val jsonResponse = JSONObject(responseBodyString)
+                                requestSuccessful = jsonResponse.optBoolean("success", false)
+
+                                if (requestSuccessful) {
+                                    resultText = jsonResponse.optString(
+                                        "final_text",
+                                        "서버로부터 결과 텍스트를 받지 못했습니다."
+                                    )
+                                } else {
+                                    errorMessageText =
+                                        jsonResponse.optString("detail", "서버에서 요청 처리에 실패했습니다.")
+                                    if (errorMessageText.isNullOrEmpty()) {
+                                        errorMessageText = jsonResponse.optString(
+                                            "final_text",
+                                            "서버에서 요청 처리에 실패했으며, 상세 오류 메시지가 없습니다."
+                                        )
+                                    }
+                                }
+                            } catch (e: org.json.JSONException) {
+                                requestSuccessful = false
+                                errorMessageText = "서버 응답을 처리하는 중 오류가 발생했습니다. (JSON 파싱 오류)"
+                                e.printStackTrace()
+                            }
+                        } else {
+                            requestSuccessful = false
+                            errorMessageText = "서버로부터 비어있는 응답을 받았습니다."
+                        }
+                    } else {
+                        requestSuccessful = false
+                        val errorBodyString = response.body?.string()
+                        var detailMessage = response.message
+
+                        if (!errorBodyString.isNullOrEmpty()) {
+                            try {
+                                val errorJson = JSONObject(errorBodyString)
+                                detailMessage = errorJson.optString("detail", detailMessage)
+                            } catch (e: org.json.JSONException) {
+                                e.printStackTrace()
+                            }
+                        }
+                        errorMessageText =
+                            "결과 생성에 실패했습니다. (서버 오류: ${response.code} ${detailMessage})"
+                    }
+                } catch (e: IOException) {
+                    requestSuccessful = false
+                    errorMessageText = "네트워크 연결 중 오류가 발생했습니다: ${e.localizedMessage}"
+                    e.printStackTrace()
                 }
-                // 결과 메시지 추가
-                val result = ChatMessage("결과 생성된 글입니다.", MessageType.RECEIVED, isResult = true)
-                chatMessages.add(result)
-                chatAdapter.notifyItemInserted(chatMessages.lastIndex)
-                chatRecyclerView.smoothScrollToPosition(chatMessages.lastIndex)
+
+                withContext(Dispatchers.Main) {
+                    val loadingIdx = chatMessages.indexOf(loading)
+                    if (loadingIdx >= 0) {
+                        chatMessages.removeAt(loadingIdx)
+                        chatAdapter.notifyItemRemoved(loadingIdx)
+                    }
+
+                    val messageToShow: ChatMessage
+                    if (requestSuccessful && resultText != null) {
+                        messageToShow = ChatMessage(resultText, MessageType.RECEIVED, isResult = true)
+                    } else {
+                        val finalErrorMessage = errorMessageText ?: "알 수 없는 오류로 인해 결과를 생성할 수 없습니다."
+                        messageToShow = ChatMessage(finalErrorMessage, MessageType.RECEIVED, isResult = true)
+                    }
+                    chatMessages.add(messageToShow)
+                    chatAdapter.notifyItemInserted(chatMessages.lastIndex)
+                    chatRecyclerView.smoothScrollToPosition(chatMessages.lastIndex)
+                }
             }
         }
 
@@ -698,13 +778,6 @@ class ChatActivity : AppCompatActivity() {
             super.onBackPressed()
         }
     }
-
-
-
-
-
-
-
 
 //    override fun onBackPressed() {
 //        if (fragmentContainer.visibility == View.VISIBLE) {
